@@ -195,9 +195,9 @@ class virtual ['ia, 'a, 'sa, 'i, 's, 'self, 'aa] logic_class =
 
 let logic_coerce
       (x  : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #logic_class)
-      (fs : 'self' -> 'self)
-      (fa : 'aa'   -> 'aa) :
-      (('ia, 'a, 'sa, 'i, 's, 'self', 'aa') #logic_class)
+      (fs : 'self2 -> 'self)
+      (fa : 'aa2   -> 'aa) :
+      (('ia, 'a, 'sa, 'i, 's, 'self2, 'aa2) #logic_class)
   = object
       method c_Var   i s n    = x#c_Var   i (fs s) n
       method c_Value i s v    = x#c_Value i (fs s) (fa v)
@@ -229,7 +229,7 @@ let _ =
   printf "Test: %s\n" @@ s () (Var 1);
   printf "Test: %s\n" @@ s () (Value 18)
 
-(* ========================= And now logic lists ============================ *)
+(* =================== And now logic lists ============================ *)
 
 type 'a llist = ('a, 'b) l logic as 'b
 
@@ -241,11 +241,11 @@ class virtual ['ia, 'a, 'sa, 'i, 's, 'self, 'aa] llist_class =
     (* inherit ['i, int, 's, 'i, 's, 'self, int] l_class *)
   end
 
-let llist_coerce (x : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #llist_class)
+let rec llist_coerce (x : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #llist_class)
                 (fs : 'self' -> 'self)
                 (fa : 'aa'   -> 'aa) :
-                ('ia, 'a, 'sa, 'i, 's, 'self', 'aa') #llist_class =
-   l_coerce x fs fa (fun x -> x)
+                ('ia, 'a, 'sa, 'i, 's, 'self', 'aa') #llist_class
+  = l_coerce x fs fa (fun x -> x)
 (*
 let llist_coerce
       (x  : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #llist_class)
@@ -259,23 +259,22 @@ let llist_coerce
 *)
 let rec llist_gcata
     (fa : 'ia -> 'a -> 'sa)
-    (tr : ('ia, 'a, 'sa, 'i, 's, ('i, 'a logic, 's) a, ('ia, 'a, 'sa) a) #llist_class)
+    (tr : ('ia, 'a, 'sa, 'i, 's, ('i, 'a llist, 's) a, ('ia, 'a, 'sa) a) #llist_class)
     (i  : 'i)
     (s  : 'a logic) =
-  match s with
-  | Var n   -> tr#c_Var   i (make s (logic_gcata fa tr)) n
-  | Value a -> tr#c_Value i (make s (logic_gcata fa tr)) (make a fa)
+
+  logic_gcata (l_gcata fa @@ llist_gcata fa tr) i s
 
 class ['a, 'self, 'aa] llist_meta_show (fa : 'self -> 'aa -> string) =
   object
-    inherit [unit, 'a, string, unit, string, 'self, 'aa] logic_class
-    method c_Var   _ _ n = sprintf "_.%d" n
-    method c_Value _ s a = fa s a
+    inherit ['a, 'self, 'aa] logic_meta_show
+      (fun s arg -> s.f () arg)
+      (* And what to write here? *)
   end
 
-class ['a] logic_show =
+class ['a] llist_show =
   object
-    inherit ['a, (unit, 'a logic, string) a, (unit, 'a, string) a] llist_meta_show (fun _ a -> a.fx ())
+    inherit ['a, (unit, 'a llist, string) a, (unit, 'a, string) a] llist_meta_show (fun _ a -> a.fx ())
   end
 
 let _ =

@@ -238,7 +238,6 @@ class virtual ['ia, 'a, 'sa, 'i, 's, 'self, 'aa] llist_class =
     inherit ['i, 'a, 's, 'i, 'b, 's, 'i, 's, 'self, 'aa, 'bb] l_class
     constraint 'b = 'a llist
     constraint 'bb = (unit, 'a logic, string) a
-    (* inherit ['i, int, 's, 'i, 's, 'self, int] l_class *)
   end
 
 let rec llist_coerce (x : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #llist_class)
@@ -246,17 +245,7 @@ let rec llist_coerce (x : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #llist_class)
                 (fa : 'aa'   -> 'aa) :
                 ('ia, 'a, 'sa, 'i, 's, 'self', 'aa') #llist_class
   = l_coerce x fs fa (fun x -> x)
-(*
-let llist_coerce
-      (x  : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #llist_class)
-      (fs : 'self' -> 'self)
-      (fa : 'aa'   -> 'aa) :
-      (('ia, 'a, 'sa, 'i, 's, 'self', 'aa') #llist_class)
-  = object
-      method c_Var   i s n    = x#c_Var   i (fs s) n
-      method c_Value i s v    = x#c_Value i (fs s) (fa v)
-    end
-*)
+
 let rec llist_gcata
     (fa : 'ia -> 'a -> 'sa)
     (tr : ('ia, 'a, 'sa, 'i, 's, ('i, 'a llist, 's) a, ('ia, 'a, 'sa) a) #llist_class)
@@ -268,8 +257,12 @@ let rec llist_gcata
 class ['a, 'self, 'aa] llist_meta_show (fa : 'self -> 'aa -> string) =
   object
     inherit ['a, 'self, 'aa] logic_meta_show
-      (fun s arg -> s.f () arg)
-      (* And what to write here? *)
+      (fun s arg ->
+        (* And what to write here? *)
+        let tr = (new l_meta_show fa s.f) in
+        l_gcata fa s.f tr () arg.x
+        (* s.f () arg *)
+      )
   end
 
 class ['a] llist_show =

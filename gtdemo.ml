@@ -1,13 +1,6 @@
-open Printf
-
 (* Type of augmented value *)
 type ('i, 'a, 's) a = {x : 'a; fx : 'i -> 's; f : 'i -> 'a -> 's}
 
-let pair_gta merge_syn l r =
-  { x  = (l.x, r.x)
-  ; fx = (fun inh -> merge_syn (l.fx inh) (r.fx inh))
-  ; f  = (fun inh (a,b) -> merge_syn (l.f inh a) (l.f inh b))
-  }
 let make x f = {x; f; fx = fun i -> f i x}
 
 (* ========= Example starts here =========== *)
@@ -52,6 +45,8 @@ class ['a, 'b, 'self, 'aa, 'bb] l_meta_show (fa : 'self -> 'aa -> string) (fb : 
     method c_Cons _ s a b = Printf.sprintf "Cons (%s, %s)" (fa s a) (fb s b)
   end
 
+let l (fa : 'self -> 'aa -> string) = new l_meta_show  fa
+
 class ['a, 'b] l_show =
   object
     inherit ['a, 'b, (unit, ('a, 'b) l, string) a, (unit, 'a, string) a, (unit, 'b, string) a] l_meta_show (fun _ a -> a.fx ()) (fun _ b -> b.fx ())
@@ -90,100 +85,35 @@ let rec list_gcata
       | Some c -> c
       | None ->
           Printf.printf "Here\n";
-          let c =
-            l_coerce tr
+	  let c =
+	    l_coerce tr
               (fun a -> make a.x (l_gcata fa (list_gcata fa tr) (inner ())))
               (fun x -> x)
               (fun l -> l.x)
-          in
-          cache := Some c;
+	  in
+	  cache := Some c;
           c
     in
     inner ()
   in
   l_gcata fa (list_gcata fa tr) (convert tr) i s
 
-class ['a, 'self, 'aa] list_meta_show fa =
+class ['a, 'self, 'aa] list_meta_show fa (* fb *) =
   object
-    inherit ['a, 'a list, 'self, 'aa, 'a list] l_meta_show fa  (fun s t -> s.f () t)
+    inherit ['a, 'a list, 'self, 'aa, 'a list] l_meta_show (fa : 'self -> 'aa -> string) (fun s t -> s.f () t) (*fb : 'self -> 'a list -> string*)
   end
 
 class ['a] list_show =
   object
-    inherit ['a, (unit, 'a list, string) a, (unit, 'a, string) a] list_meta_show (fun _ h -> h.fx ())
-      (* (fun s t -> s.f () t) *)
+    inherit ['a, (unit, 'a list, string) a, (unit, 'a, string) a] list_meta_show (fun _ h -> h.fx ()) (*fun s t -> s.f () t*)
   end
 
 let _ = Printf.printf "Test: %s\n" (list_gcata (lift string_of_int) (new list_show) () (Cons (1, Cons (2, Nil))))
 
-(* ========================= Second application ============================= *)
-(* Yet another type constructor application *)
-type ilist = int list
 
-(* Class for instantiated type *)
-class virtual ['i, 's, 'self] ilist_class =
-  object
-    inherit ['i, int, 's, 'i, 's, 'self, int] list_class
-  end
+(* =============================== Logics ================================== *)
 
-(* Class coercion *)
-let ilist_coerce (x  : ('i, 's, 'self) #ilist_class)
-                 (fs : 'self' -> 'self) :
-                 ('i, 's, 'self') #ilist_class =
-  list_coerce x fs (fun x -> x)
-
-(* Generic transformation function *)
-let rec ilist_gcata
-    (tr : ('i, 's, ('i, ilist, 's) a) #ilist_class)
-    (i  : 'i)
-    (s  : ilist) = list_gcata (fun x -> x) (list_coerce tr (fun x -> x) (fun a -> a.x)) i s
-
-(* Test for plugin *)
-class ['self] ilist_meta_show (*fb*) =
-  object
-    inherit [int, 'self, int] list_meta_show (fun _ -> string_of_int)
-    (* fa (*fb*) *)
-      (* (fun s t -> s.f () t) *)
-  end
-
-class ilist_show =
-  object
-    inherit [(unit, ilist, string) a] ilist_meta_show
-      (* (fun s t -> s.f () t) *)
-  end
-
-let _ = Printf.printf "Test: %s\n" (ilist_gcata (new ilist_show) () (Cons (1, Cons (2, Nil))))
-
-(* ===================================================================== *)
-(*
-type selflist = selflist list
-class virtual ['i, 's, 'self] selflist_class = object
-  inherit ['i, selflist, 's, 'i, 's, 'self, selflist] list_class
-end
-let selflist_coerce (x  : ('i, 's, 'self) #selflist_class)
-                    (fs : 'self' -> 'self) :
-                    ('i, 's, 'self') #selflist_class =
-  list_coerce x fs (fun x -> x)
-
-let rec selflist_gcata
-    (tr : ('i, 's, ('i, selflist, 's) a) #selflist_class)
-    (i  : 'i)
-    (s  : selflist) = list_gcata (fun x -> x)f i s
-
-class ['self] selflist_meta_show = object
-  inherit [selflist, 'self, selflist] list_meta_show (fun s t -> s.f () t)
-end
-
-class selflist_show = object
-  inherit [(unit, selflist, string) a] selflist_meta_show
-end
-
-let _ = Printf.printf "Test: %s\n" (selflist_gcata (new ilist_show) () (Cons (Nil, Cons (Nil, Nil))))
-*)
-
-
-
-(* ========= Logic type =========== *)
+open Printf
 
 type 'a logic = Var of int | Value of 'a
 
@@ -229,55 +159,83 @@ let _ =
   printf "Test: %s\n" @@ s () (Var 1);
   printf "Test: %s\n" @@ s () (Value 18)
 
+(* ==================== Almost logic lists ============================ *)
+module MaybeL = struct
+type ('a,'b) maybel = ('a, 'b) l logic
+
+
+class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb] maybel_class =
+  object
+    inherit ['ia, ('a, 'b) l, 'sa, 'i, 's, 'self, 'inner_aa] logic_class
+    constraint 'inner_aa = ('i, ('a, 'b) l, 's) a
+  end
+
+let maybel_coerce (x : ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb) #maybel_class)
+                  (fs : 'self' -> 'self)
+                  (fa : 'aa2   -> 'aa)
+                  (fa : 'bb2   -> 'bb) :
+                  ('ia, 'a, 'sa, 'i, 's, 'self', 'aa2) #logic_class =
+  l_coerce x fs fa (fun x -> x)
+
+end
+(*
 (* =================== And now logic lists ============================ *)
 
 type 'a llist = ('a, 'b) l logic as 'b
 
 class virtual ['ia, 'a, 'sa, 'i, 's, 'self, 'aa] llist_class =
   object
-    inherit ['i, 'a, 's, 'i, 'b, 's, 'i, 's, 'self, 'aa, 'bb] l_class
-    constraint 'b = 'a llist
-    constraint 'bb = (unit, 'a logic, string) a
+    inherit ['ia, ('a, 'a llist) l, ('sa, 'sa llist) l, 'i, 's, 'self, 'aa] logic_class
   end
 
-let rec llist_coerce (x : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #llist_class)
-                (fs : 'self' -> 'self)
-                (fa : 'aa'   -> 'aa) :
-                ('ia, 'a, 'sa, 'i, 's, 'self', 'aa') #llist_class
-  = l_coerce x fs fa (fun x -> x)
+(* In coerce function cast the transformer that deals with left type to the transformers
+  that deals with right most outer type.
+  NOTE: This goes in conflict with stuff written above for previous types
+*)
+
+let rec llist_coerce (x  : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #llist_class)
+                     (fs : 'self' -> 'self)
+                     (fa : 'aa'   -> 'aa) :
+                     ('ia, ('a, 'a llist) l, ('sa, 'sa llist) l, 'i, 's, 'self', 'aa') #logic_class
+  = logic_coerce x fs fa
 
 let rec llist_gcata
     (fa : 'ia -> 'a -> 'sa)
     (tr : ('ia, 'a, 'sa, 'i, 's, ('i, 'a llist, 's) a, ('ia, 'a, 'sa) a) #llist_class)
     (i  : 'i)
-    (s  : 'a logic) =
+    (s  : 'a llist) =
+  logic_gcata (l_gcata fa @@ llist_gcata fa tr) (llist_coerce tr (invalid_arg "") (invalid_arg "")) i s
 
-  logic_gcata (l_gcata fa @@ llist_gcata fa tr) i s
-
-class ['a, 'self, 'aa] llist_meta_show (fa : 'self -> 'aa -> string) =
+class ['a, 'self, 'aa, 'aaxxxx] llist_meta_show (fa : 'self -> 'aa -> string) =
   object
-    inherit ['a, 'self, 'aa] logic_meta_show
+    inherit [ ('a, 'a llist) l, 'self, 'aaxxxx] logic_meta_show
       (fun s arg ->
+        (* invalid_arg "" *)
+
         (* And what to write here? *)
-        let tr = (new l_meta_show fa s.f) in
-        l_gcata fa s.f tr () arg.x
+        (* let l = new l_meta_show in *)
+
+        let tr = new l_meta_show fa  (invalid_arg "") in
+        l_gcata (invalid_arg "") (invalid_arg "")  tr () arg.x
         (* s.f () arg *)
+
+
       )
+
   end
 
 class ['a] llist_show =
   object
-    inherit ['a, (unit, 'a llist, string) a, (unit, 'a, string) a] llist_meta_show (fun _ a -> a.fx ())
+    inherit ['a, (unit, 'a llist, string) a, (unit, 'a, string) a] llist_meta_show  (fun _ a -> a.fx ())
   end
 
 let _ =
   let rec s () x = llist_gcata (lift string_of_int) (new llist_show) () x in
-  printf "Test: %s\n" @@ s () (Var 1);
-  printf "Test: %s\n" @@ s () (Value 18)
+  printf "Test: %s\n" @@ s () (Value (Cons (1, Value Nil)));
+  printf "Test: %s\n" @@ s () (Value (Cons (18, Value Nil)))
+*)
 
-(*
-
-(* ========================= Third application ============================== *)
+(* ========================= Third application ========================= *)
 type ('a, 'b) plist = ('a * 'b) list
 
 class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb] plist_class =
@@ -293,22 +251,54 @@ let plist_coerce (x : ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb) #pli
   list_coerce x fs (fun (a, b) -> (fa a, fb b))
 
 let plist_gcata fa fb tr i s =
-  list_gcata (fun (ia, ib) (a, b) -> fa ia a, fb ib b) (list_coerce tr (fun x -> x) (fun a -> let (a', b') = a.x in make a' fa, make b' fb)) i s
+ list_gcata (fun (ia, ib) (a, b) -> fa ia a, fb ib b) (list_coerce tr (fun x -> x) (fun a -> let (a', b') = a.x in make a' fa, make b' fb)) i s
 
 (* Test for plugin *)
 class ['a, 'b, 'self, 'aa, 'bb] plist_meta_show fa fb =
   object
-    inherit ['a * 'b, 'self, 'aa * 'bb] list_meta_show (pair_gta (sprintf "(%s,%s)") fa fb)
+    inherit ['a * 'b, 'self, 'aa * 'bb] list_meta_show (fun s (x, y) -> "(" ^ fa s x ^ ", " ^ fb s y ^ ")")
   end
 
 class ['a, 'b] plist_show =
   object
     inherit ['a, 'b, (unit, ('a, 'b) plist, string) a, (unit, 'a, string) a, (unit, 'b, string) a] plist_meta_show
-       (* (fun s (a, b) -> Printf.sprintf "(%s, %s)" (a.fx ()) (b.fx ()))
-       (fun s t      -> s.f () t) *)
-      (fun _ a -> a.fx ())
-      (fun _ a -> a.fx ())
+       (fun s a -> a.fx ())
+       (fun s b -> b.fx ())
   end
 
 let _ = Printf.printf "Test: %s\n" (plist_gcata (lift string_of_int) (lift (fun x -> x)) (new plist_show) () (Cons ((1, "a"), Cons ((2, "b"), Cons ((5, "c"), Nil)))))
-*)
+
+(* ========================= Second application ============================= *)
+(* Yet another type constructor application *)
+type ilist = int list
+
+(* Class for instantiated type *)
+class virtual ['i, 's, 'self] ilist_class =
+  object
+    inherit ['i, int, 's, 'i, 's, 'self, int] list_class
+  end
+
+(* Class coercion *)
+let ilist_coerce (x  : ('i, 's, 'self) #ilist_class)
+                 (fs : 'self' -> 'self) :
+                 ('i, 's, 'self') #ilist_class =
+  list_coerce x fs (fun x -> x)
+
+(* Generic transformation function *)
+let rec ilist_gcata
+    (tr : ('i, 's, ('i, ilist, 's) a) #ilist_class)
+    (i  : 'i)
+    (s  : ilist) = list_gcata (fun x -> x) (list_coerce tr (fun x -> x) (fun a -> a.x)) i s
+
+(* Test for plugin *)
+class ['self] ilist_meta_show (*fa fb*) =
+  object
+    inherit [int, 'self, int] list_meta_show (fun _ -> string_of_int) (*fa fb*)
+  end
+
+class ilist_show =
+  object
+    inherit [(unit, ilist, string) a] ilist_meta_show (*(fun _ -> string_of_int) (fun s t -> s.f () t) *)
+  end
+
+let _ = Printf.printf "Test: %s\n" (ilist_gcata (new ilist_show) () (Cons (1, Cons (2, Nil))))

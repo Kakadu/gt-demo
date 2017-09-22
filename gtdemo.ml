@@ -186,7 +186,7 @@ let rec maybel_gcata
     (i  : 'i)
     (s  : ('a, 'b) maybel) =
   logic_gcata (fun (ia, ib) (a, b) -> fa ia a, fb ib b)
-    (l_gcata fa fb) (maybel_coerce tr (invalid_arg "") (invalid_arg "") (invalid_arg "")) i s
+    (maybel_coerce tr (invalid_arg "") (invalid_arg "") (invalid_arg "")) i s
 
 class ['a, 'b, 'self, 'aa, 'bb] maybel_meta_show fa fb =
   object

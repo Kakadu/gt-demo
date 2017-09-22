@@ -54,7 +54,9 @@ class ['a, 'b] l_show =
 
 let lift f = fun () x -> f x
 
-let _ = Printf.printf "Test: %s\n" (let rec s () x = l_gcata (lift string_of_int) s (new l_show) () x in s () (Cons (1, Cons (2, Nil))))
+let _ =
+  let rec s () x = l_gcata (lift string_of_int) s (new l_show) () x in
+  Printf.printf "Test: %s\n" (s () (Cons (1, Cons (2, Nil))))
 
 (* ======================== First application ================================= *)
 (* Type application *)
@@ -160,24 +162,92 @@ let _ =
   printf "Test: %s\n" @@ s () (Value 18)
 
 (* ==================== Almost logic lists ============================ *)
-module MaybeL = struct
 type ('a,'b) maybel = ('a, 'b) l logic
-
 
 class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb] maybel_class =
   object
     inherit ['ia, ('a, 'b) l, 'sa, 'i, 's, 'self, 'inner_aa] logic_class
-    constraint 'inner_aa = ('i, ('a, 'b) l, 's) a
+    (* constraint 'inner_aa = ('i, ('a, 'b) l, 's) a (* maybe aa and bb here *) *)
+    constraint 'inner_aa = 'aa * 'bb
   end
 
 let maybel_coerce (x : ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb) #maybel_class)
-                  (fs : 'self' -> 'self)
+                  (fs : 'self2 -> 'self)
                   (fa : 'aa2   -> 'aa)
-                  (fa : 'bb2   -> 'bb) :
-                  ('ia, 'a, 'sa, 'i, 's, 'self', 'aa2) #logic_class =
-  l_coerce x fs fa (fun x -> x)
+                  (fb : 'bb2   -> 'bb) :
+                  ('ia * 'ib, 'a * 'b, 'sa * 'sb, 'i, 's, 'self2, 'aa2 * 'bb2) #logic_class =
+  (* Obj.magic x *)
+  logic_coerce x fs (fun (a,b) -> (fa a, fb b))
 
-end
+let rec maybel_gcata
+    (fa : 'ia -> 'a -> 'sa)
+    (fb : 'ib -> 'b -> 'sb)
+    (tr : ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, ('i, ('a,'b) maybel, 's) a, ('ia, 'a, 'sa) a, ('ib, 'b, 'sb) a) #maybel_class)
+    (i  : 'i)
+    (s  : ('a, 'b) maybel) =
+  logic_gcata (fun (ia, ib) (a, b) -> fa ia a, fb ib b)
+    (l_gcata fa fb) (maybel_coerce tr (invalid_arg "") (invalid_arg "") (invalid_arg "")) i s
+
+class ['a, 'b, 'self, 'aa, 'bb] maybel_meta_show fa fb =
+  object
+    inherit [('a,'b) l, 'self, (unit, ('aa,'bb) l, string) a ] logic_meta_show
+      (fun _ p -> l_gcata fa fb (new l_show) () p.x)
+      (* (fa : 'self -> 'aa -> string) *)
+      (* (fun s t -> s.f () t) (*fb : 'self -> 'a list -> string*) *)
+  end
+
+class ['a, 'b] maybel_show =
+  object
+    inherit ['a, 'b, (unit, ('a, 'b) maybel, string) a, (unit, 'a, string) a, (unit, 'b, string) a] maybel_meta_show
+      (fun _ a -> a.fx ())
+      (fun _ b -> b.fx ())
+  end
+
+let _ =
+  let rec s x = maybel_gcata (lift string_of_int) (fun _ x -> x) (new maybel_show) () x in
+  Printf.printf "Test: %s\n" @@ s (Value (Cons (1, "xxxx")));
+  Printf.printf "Test: %s\n" @@ s (Var 256)
+
+
+(* ========================= Third application ========================= *)
+type ('a, 'b) plist = ('a * 'b) list
+
+class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb] plist_class =
+  object
+    inherit ['ia * 'ib, 'a * 'b, 'sa * 'sb, 'i, 's, 'self, 'aa * 'bb] list_class
+  end
+
+let plist_coerce (x : ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb) #plist_class)
+                 (fs : 'self' -> 'self)
+                 (fa : 'aa' -> 'aa)
+                 (fb : 'bb' -> 'bb) :
+                 ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self', 'aa', 'bb') #plist_class =
+  list_coerce x fs (fun (a, b) -> (fa a, fb b))
+
+let plist_gcata fa fb tr i s =
+ list_gcata (fun (ia, ib) (a, b) -> fa ia a, fb ib b)
+    (list_coerce tr (fun x -> x) (fun a ->  let (a', b') = a.x in
+                                            make a' fa, make b' fb))
+    i
+    s
+
+(* Test for plugin *)
+class ['a, 'b, 'self, 'aa, 'bb] plist_meta_show fa fb =
+  object
+    inherit ['a * 'b, 'self, 'aa * 'bb] list_meta_show (fun s (x, y) -> "(" ^ fa s x ^ ", " ^ fb s y ^ ")")
+  end
+
+class ['a, 'b] plist_show =
+  object
+    inherit ['a, 'b, (unit, ('a, 'b) plist, string) a, (unit, 'a, string) a, (unit, 'b, string) a] plist_meta_show
+       (fun s a -> a.fx ())
+       (fun s b -> b.fx ())
+  end
+
+let _ = Printf.printf "Test: %s\n" (plist_gcata (lift string_of_int) (lift (fun x -> x)) (new plist_show) () (Cons ((1, "a"), Cons ((2, "b"), Cons ((5, "c"), Nil)))))
+
+
+
 (*
 (* =================== And now logic lists ============================ *)
 
@@ -235,39 +305,7 @@ let _ =
   printf "Test: %s\n" @@ s () (Value (Cons (18, Value Nil)))
 *)
 
-(* ========================= Third application ========================= *)
-type ('a, 'b) plist = ('a * 'b) list
-
-class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb] plist_class =
-  object
-    inherit ['ia * 'ib, 'a * 'b, 'sa * 'sb, 'i, 's, 'self, 'aa * 'bb] list_class
-  end
-
-let plist_coerce (x : ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb) #plist_class)
-                 (fs : 'self' -> 'self)
-                 (fa : 'aa' -> 'aa)
-                 (fb : 'bb' -> 'bb) :
-                 ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self', 'aa', 'bb') #plist_class =
-  list_coerce x fs (fun (a, b) -> (fa a, fb b))
-
-let plist_gcata fa fb tr i s =
- list_gcata (fun (ia, ib) (a, b) -> fa ia a, fb ib b) (list_coerce tr (fun x -> x) (fun a -> let (a', b') = a.x in make a' fa, make b' fb)) i s
-
-(* Test for plugin *)
-class ['a, 'b, 'self, 'aa, 'bb] plist_meta_show fa fb =
-  object
-    inherit ['a * 'b, 'self, 'aa * 'bb] list_meta_show (fun s (x, y) -> "(" ^ fa s x ^ ", " ^ fb s y ^ ")")
-  end
-
-class ['a, 'b] plist_show =
-  object
-    inherit ['a, 'b, (unit, ('a, 'b) plist, string) a, (unit, 'a, string) a, (unit, 'b, string) a] plist_meta_show
-       (fun s a -> a.fx ())
-       (fun s b -> b.fx ())
-  end
-
-let _ = Printf.printf "Test: %s\n" (plist_gcata (lift string_of_int) (lift (fun x -> x)) (new plist_show) () (Cons ((1, "a"), Cons ((2, "b"), Cons ((5, "c"), Nil)))))
-
+(*
 (* ========================= Second application ============================= *)
 (* Yet another type constructor application *)
 type ilist = int list
@@ -302,3 +340,4 @@ class ilist_show =
   end
 
 let _ = Printf.printf "Test: %s\n" (ilist_gcata (new ilist_show) () (Cons (1, Cons (2, Nil))))
+*)

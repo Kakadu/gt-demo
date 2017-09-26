@@ -1,3 +1,4 @@
+open Printf
 (* Type of augmented value *)
 type ('i, 'a, 's) a = {x : 'a; fx : 'i -> 's; f : 'i -> 'a -> 's}
 
@@ -18,9 +19,9 @@ class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb] l_class =
 (* Class coercion *)
 let l_coerce (x  : ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb) #l_class)
              (fs : 'self' -> 'self)
-             (fa : 'aa'   -> 'aa)
-             (fb : 'bb'   -> 'bb) :
-             (('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self', 'aa', 'bb') #l_class)
+             (fa : 'aa2   -> 'aa)
+             (fb : 'bb2   -> 'bb) :
+             ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self', 'aa2, 'bb2) #l_class
   = object
       method c_Nil  i s     = x#c_Nil  i (fs s)
       method c_Cons i s a b = x#c_Cons i (fs s) (fa a) (fb b)
@@ -45,24 +46,48 @@ class ['a, 'b, 'self, 'aa, 'bb] l_meta_show (fa : 'self -> 'aa -> string) (fb : 
     method c_Cons _ s a b = Printf.sprintf "Cons (%s, %s)" (fa s a) (fb s b)
   end
 
-let l (fa : 'self -> 'aa -> string) = new l_meta_show  fa
+(*let l (fa : 'self -> 'aa -> string) = new l_meta_show  fa*)
 
 class ['a, 'b] l_show =
   object
     inherit ['a, 'b, (unit, ('a, 'b) l, string) a, (unit, 'a, string) a, (unit, 'b, string) a] l_meta_show (fun _ a -> a.fx ()) (fun _ b -> b.fx ())
   end
 
+class ['a, 'a_syn, 'b, 'b_syn, 'self, 'aa, 'bb] l_meta_gmap (fa : 'self -> 'aa -> 'a_syn) (fb : 'self -> 'bb -> 'b_syn) =
+  object
+    inherit [unit, 'a, 'a_syn, unit, 'b, 'b_syn, unit, ('a_syn,'b_syn) l, 'self, 'aa, 'bb] l_class
+    method c_Nil  _ _     = Nil
+    method c_Cons _ s a b = Cons (fa s a, fb s b)
+  end
+
+class ['a, 'a_syn, 'b, 'b_syn] l_show =
+  object
+    inherit ['a, 'b, (unit, ('a, 'b) l, string) a, (unit, 'a, string) a, (unit, 'b, string) a] l_meta_show
+      (fun _ a -> a.fx ())
+      (fun _ b -> b.fx ())
+  end
+
+class ['a, 'a_syn, 'b, 'b_syn, 'self] l_gmap = object
+  inherit ['a, 'a_syn, 'b, 'b_syn, (unit, ('a, 'b) l, 'syn_r) a, (unit, 'a, 'a_syn) a, (unit, 'b, 'b_syn) a] l_meta_gmap
+    (fun _ a -> a.fx ())
+    (fun _ b -> b.fx ())
+  constraint 'syn_r = ('a_syn,'b_syn) l
+end
+
 let lift f = fun () x -> f x
+let id x = x
 
 let _ =
   let rec s () x = l_gcata (lift string_of_int) s (new l_show) () x in
-  Printf.printf "Test: %s\n" (s () (Cons (1, Cons (2, Nil))))
+  let a = (Cons (1, Cons (2, Nil))) in
+  printf "Test show: %s\n" @@ s () a;
+  let rec foo ona x = l_gcata ona (fun () -> foo ona) (new l_gmap) () x in
+  printf "Test gmap: %s\n" @@ s () (foo (fun () -> (+)1) a)
 
 (* ======================== First application ================================= *)
 (* Type application *)
 type 'a list = ('a, 'a list) l
 
-(* Class for instantiated type *)
 class virtual ['ia, 'a, 'sa, 'i, 's, 'self, 'aa] list_class =
   object
     inherit ['ia, 'a, 'sa, 'i, 'a list, 's, 'i, 's, 'self, 'aa, 'a list] l_class
@@ -72,6 +97,7 @@ let list_coerce (x : ('ia, 'a, 'sa, 'i, 's, 'self, 'aa) #list_class)
                 (fs : 'self' -> 'self)
                 (fa : 'aa'   -> 'aa) :
                 ('ia, 'a, 'sa, 'i, 's, 'self', 'aa') #list_class =
+                                          (* maybe l_class there *)
    l_coerce x fs fa (fun x -> x)
 
 (* Transformation function *)
@@ -87,13 +113,13 @@ let rec list_gcata
       | Some c -> c
       | None ->
           Printf.printf "Here\n";
-	  let c =
-	    l_coerce tr
+    let c =
+      l_coerce tr
               (fun a -> make a.x (l_gcata fa (list_gcata fa tr) (inner ())))
               (fun x -> x)
               (fun l -> l.x)
-	  in
-	  cache := Some c;
+    in
+    cache := Some c;
           c
     in
     inner ()
@@ -102,7 +128,8 @@ let rec list_gcata
 
 class ['a, 'self, 'aa] list_meta_show fa (* fb *) =
   object
-    inherit ['a, 'a list, 'self, 'aa, 'a list] l_meta_show (fa : 'self -> 'aa -> string) (fun s t -> s.f () t) (*fb : 'self -> 'a list -> string*)
+    inherit ['a, 'a list, 'self, 'aa, 'a list] l_meta_show (fa : 'self -> 'aa -> string) (fun s t -> s.f () t)
+      (*fb : 'self -> 'a list -> string*)
   end
 
 class ['a] list_show =
@@ -168,30 +195,43 @@ class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb] maybel_class
   object
     inherit ['ia, ('a, 'b) l, 'sa, 'i, 's, 'self, 'inner_aa] logic_class
     (* constraint 'inner_aa = ('i, ('a, 'b) l, 's) a (* maybe aa and bb here *) *)
-    constraint 'inner_aa = 'aa * 'bb
+    constraint 'inner_aa = ('aa, 'bb) l
   end
 
+(* coerce-like functions will be used in aliases of maybe l to cast less general type
+  to _ maybel *)
 let maybel_coerce (x : ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb) #maybel_class)
                   (fs : 'self2 -> 'self)
                   (fa : 'aa2   -> 'aa)
                   (fb : 'bb2   -> 'bb) :
-                  ('ia * 'ib, 'a * 'b, 'sa * 'sb, 'i, 's, 'self2, 'aa2 * 'bb2) #logic_class =
-  (* Obj.magic x *)
-  logic_coerce x fs (fun (a,b) -> (fa a, fb b))
+                  ('ia * 'ib, ('a, 'b) l, 'sa * 'sb, 'i, 's, 'self2, ('aa2, 'bb2) l) #logic_class =
+(*   Obj.magic x*)
+  logic_coerce x fs (fun (thel: ('aa2, 'bb2) l) -> l_gcata (fun () -> fa) (fun () -> fb) (new l_gmap) () thel)
 
 let rec maybel_gcata
     (fa : 'ia -> 'a -> 'sa)
     (fb : 'ib -> 'b -> 'sb)
-    (tr : ('ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, ('i, ('a,'b) maybel, 's) a, ('ia, 'a, 'sa) a, ('ib, 'b, 'sb) a) #maybel_class)
+    (tr : ( 'ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's
+          , ('i, ('a,'b) maybel, 's) a
+          , ('ia, 'a, 'sa) a, ('ib, 'b, 'sb) a) #maybel_class)
     (i  : 'i)
     (s  : ('a, 'b) maybel) =
-  logic_gcata (fun (ia, ib) (a, b) -> fa ia a, fb ib b)
-    (maybel_coerce tr (invalid_arg "") (invalid_arg "") (invalid_arg "")) i s
+  logic_gcata
+    (invalid_arg "")
+(*    (fun (ia, ib) (a, b) -> fa ia a, fb ib b)*)
+     (maybel_coerce tr (invalid_arg "") (invalid_arg "") (invalid_arg ""))
+(*    (invalid_arg "")*)
+    i s
 
-class ['a, 'b, 'self, 'aa, 'bb] maybel_meta_show fa fb =
+(* last error is about that logic_gcata expects last type argument [...,'aa] #logic_class
+  to be a _ GT.a but maybel_coerce puts concrete type there *)
+
+class ['a, 'b, 'self, 'aa, 'bb] maybel_meta_show (fa : 'self -> 'aa -> string) (fb : 'self -> 'bb -> string) =
   object
-    inherit [('a,'b) l, 'self, (unit, ('aa,'bb) l, string) a ] logic_meta_show
-      (fun _ p -> l_gcata fa fb (new l_show) () p.x)
+(*    inherit [('a,'b) l, 'self, (unit, ('aa,'bb) l, string) a ] logic_meta_show*)
+    inherit [('a,'b) l, 'self, ('aa, 'bb) l ] logic_meta_show
+(*      (fun _ p -> l_gcata fa fb (new l_show) () p.x)*)
+      (fun _ _ -> assert false)
       (* (fa : 'self -> 'aa -> string) *)
       (* (fun s t -> s.f () t) (*fb : 'self -> 'a list -> string*) *)
   end
@@ -208,6 +248,7 @@ let _ =
   Printf.printf "Test: %s\n" @@ s (Value (Cons (1, "xxxx")));
   Printf.printf "Test: %s\n" @@ s (Var 256)
 
+(*
 
 (* ========================= Third application ========================= *)
 type ('a, 'b) plist = ('a * 'b) list
@@ -245,7 +286,7 @@ class ['a, 'b] plist_show =
   end
 
 let _ = Printf.printf "Test: %s\n" (plist_gcata (lift string_of_int) (lift (fun x -> x)) (new plist_show) () (Cons ((1, "a"), Cons ((2, "b"), Cons ((5, "c"), Nil)))))
-
+*)
 
 
 (*

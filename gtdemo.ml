@@ -50,7 +50,9 @@ class ['a, 'b, 'self, 'aa, 'bb] l_meta_show (fa : 'self -> 'aa -> string) (fb : 
 
 class ['a, 'b] l_show =
   object
-    inherit ['a, 'b, (unit, ('a, 'b) l, string) a, (unit, 'a, string) a, (unit, 'b, string) a] l_meta_show (fun _ a -> a.fx ()) (fun _ b -> b.fx ())
+    inherit ['a, 'b, (unit, ('a, 'b) l, string) a, (unit, 'a, string) a, (unit, 'b, string) a] l_meta_show
+      (fun _ a -> a.fx ())
+      (fun _ b -> b.fx ())
   end
 
 class ['a, 'a_syn, 'b, 'b_syn, 'self, 'aa, 'bb] l_meta_gmap (fa : 'self -> 'aa -> 'a_syn) (fb : 'self -> 'bb -> 'b_syn) =
@@ -134,15 +136,13 @@ class ['a, 'self, 'aa] list_meta_show fa (* fb *) =
 
 class ['a] list_show =
   object
-    inherit ['a, (unit, 'a list, string) a, (unit, 'a, string) a] list_meta_show (fun _ h -> h.fx ()) (*fun s t -> s.f () t*)
+    inherit ['a, (unit, 'a list, string) a, (unit, 'a, string) a] list_meta_show (fun _ h -> h.fx ())
   end
 
-let _ = Printf.printf "Test: %s\n" (list_gcata (lift string_of_int) (new list_show) () (Cons (1, Cons (2, Nil))))
+let _ = printf "Test: %s\n" (list_gcata (lift string_of_int) (new list_show) () (Cons (1, Cons (2, Nil))))
 
 
 (* =============================== Logics ================================== *)
-
-open Printf
 
 type 'a logic = Var of int | Value of 'a
 
@@ -194,7 +194,6 @@ type ('a,'b) maybel = ('a, 'b) l logic
 class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'i, 's, 'self, 'aa, 'bb] maybel_class =
   object
     inherit ['ia, ('a, 'b) l, 'sa, 'i, 's, 'self, 'inner_aa] logic_class
-    (* constraint 'inner_aa = ('i, ('a, 'b) l, 's) a (* maybe aa and bb here *) *)
     constraint 'inner_aa = ('aa, 'bb) l
   end
 

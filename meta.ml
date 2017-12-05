@@ -315,7 +315,11 @@ let _ =
       (show_pv id            id (`A "1"))
       (show_pv string_of_int id (gmap_pv int_of_string id (`A "1")))
 
+
+(* ********************************************************************************************** *)
 type ('a, 'b) pv_ext = [ `C of 'a | ('a, 'b) pv ]
+and ('self,'a,'b) pv_ext_open =
+  'self constraint 'self = [> `C of 'a  | ('a, 'b) pv ]
 
 class virtual ['a, 'ia, 'sa, 'b, 'ib, 'sb, 'inh, 'syn] class_pv_ext =
   object

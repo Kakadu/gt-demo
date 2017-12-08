@@ -220,9 +220,26 @@ Text of abstract \ldots.
   National Science Foundation.
 \end{acks}
 
+\section{Regularity and non-regularity}
+In a regular datatype declaration, occurrences of the declared type on the right-hand
+side  of  the  defining  equation  are  restricted  to  copies  of  the  left-hand  side,  so
+the recursion  is "tail recursive"
+\footnote{from http://www.cs.ox.ac.uk/richard.bird/online/BirdMeertens98Nested.pdf}.
 
-%% Bibliography
-%\bibliography{bibfile}
+For example the \lstinline{type ('a,'b) t = A | B of ('a, int) t} is non-regular and we need to use
+\textit{polymorphic recursion} to iterate over it. Without explicit annotation the iteration
+function will have the wrong type.
+\begin{lstlisting}
+# let rec iter: 'a 'b . ('a, 'b) t -> unit = function A -> () | B x -> iter x;;
+val iter : ('a, 'b) t -> unit = <fun>
+# let rec iter = function A -> () | B x -> iter x;;
+val iter : ('a, int) t -> unit = <fun>
+\end{lstlisting}
+In that particular case unfolding can help to do what we want without explicit type annotations
+\begin{lstlisting}
+let rec iter = function A -> () | B x -> iter x;;
+let iter = function A -> () | B x -> iter x;;
+\end{lstlisting}
 
 \section{Sorts of types}
 $\overline{remark~how~to~write~upper~line}$
@@ -245,7 +262,7 @@ type ($a_1$, ..., $a_n$) typename =
 
 \end{lstlisting}
 
-\section{What is being genrated in general}
+\section{What is being generated in general}
 
 For every \lstinline{type ($a_1$, ..., $a_n$) t} we generate:
 \begin{itemize}
@@ -295,6 +312,8 @@ For every \lstinline{type ($a_1$, ..., $a_n$) t} we generate:
 \end{itemize}
 
 \section{xxx}
+
+\section{xxx}
 \begin{lstlisting}
    let rec append$^o$ x y xy =
      (x === nil ()) &&& (y === xy) |||
@@ -317,10 +336,14 @@ For every \lstinline{type ($a_1$, ..., $a_n$) t} we generate:
      ]
 \end{lstlisting}
 
+%% Bibliography
+%\bibliography{bibfile}
+
 %% Appendix
 %\appendix
 %\section{Appendix}
 
 Text of appendix \ldots
+
 
 \end{document}

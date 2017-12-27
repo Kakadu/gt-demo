@@ -1,4 +1,5 @@
 open Utils
+open Printf
 
 (* ---------------- Original Type ------------------- *)
 type 'a t = 'a option = None | Some of 'a
@@ -12,14 +13,14 @@ class virtual ['a, 'ia, 'sa, 'inh, 'syn] class_toption =
 class ['a] show_toption self fa =
   object
     inherit ['a, unit, string, unit, string] class_toption
-    method c_Some () a = "Some (" ^ fa a ^ ")"
+    method c_Some () a = sprintf "Some (%a)" fa a
     method c_None ()   = "None"
   end
 
-class ['a, 'a1] map_toption self (fa : 'a -> 'a1) =
+class ['a, 'a1] map_toption self (fa : unit -> 'a -> 'a1) =
   object
     inherit ['a, unit, 'a1, 'b, 'a1 t] class_toption
-    method c_Some () a = Some (fa a)
+    method c_Some () a = Some (fa () a)
     method c_None ()   = None
   end
 
@@ -29,8 +30,8 @@ let rec gcata_toption tr inh t =
   | Some a -> tr#c_Some inh a
   | None   -> tr#c_None inh
 
-let show_toption fa t = fix0 (fun self -> gcata_toption (new show_toption self fa) ()) t
-let gmap_toption fa t = fix0 (fun self -> gcata_toption (new map_toption  self fa) ()) t
+let show_toption fa t = fix0 (fun self -> gcata_toption (new show_toption self (fun () -> fa)) ()) t
+let gmap_toption fa t = fix0 (fun self -> gcata_toption (new map_toption  self (fun () -> fa)) ()) t
 
 let _ =
   Printf.printf "Original: %s\nMapped: %s\n"

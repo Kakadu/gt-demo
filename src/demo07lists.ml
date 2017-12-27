@@ -22,7 +22,7 @@ class ['a, 'a1, 'b, 'b1] map_alist self fa fb =
   object
     inherit ['a, unit, 'a1, 'b, unit, 'b1, unit, ('a1, 'b1) alist] class_alist
     method c_Nil  _     = Nil
-    method c_Cons _ a b = Cons (fa a, fb b)
+    method c_Cons _ a b = Cons (fa () a, fb () b)
   end
 
 let rec gcata_alist tr inh t =
@@ -34,7 +34,9 @@ let rec gcata_alist tr inh t =
 let show_alist fa fb t = fix0 (fun self ->
     gcata_alist (new show_alist self (fun () -> fa) (fun () -> fb)) ()) t
 
-let gmap_alist fa fb t = fix0 (fun self t -> gcata_alist (new map_alist self fa fb) () t) t
+let gmap_alist fa fb t = fix0 (fun self ->
+    gcata_alist (new map_alist self (fun () -> fa) (fun () -> fb)) ()
+  ) t
 
 let _ = printf "Original: %s\nMapped: %s\n"
     (show_alist id string_of_int (Cons ("a", 1)))
@@ -54,6 +56,11 @@ class ['a] show_list self fa =
     inherit ['a, unit, string, unit, string] class_list
     inherit ['a, 'a list] show_alist self fa self
   end
+class ['a, 'b] map_list self fa =
+  object
+    inherit ['a, unit, 'b, unit, 'b list] class_list
+    inherit ['a, 'b, 'a list, 'b list] map_alist self fa self
+  end
 
 let rec gcata_list tr inh t = gcata_alist tr inh t
 
@@ -64,6 +71,9 @@ let rec gcata_list tr inh t = gcata_alist tr inh t
 
 let show_list fa t = fix (fun self () t ->
     gcata_list (new show_list self (fun () -> fa)) () t
+  ) () t
+let map_list fa t = fix (fun self () t ->
+    gcata_list (new map_list self (fun () -> fa)) () t
   ) () t
 
 

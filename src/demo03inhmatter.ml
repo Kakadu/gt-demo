@@ -79,23 +79,32 @@ let wtfo_alist typ_a fa typ_b fb t =
     gcata_alist (obj self) () t
   ) t
 
-class ['a] wtfo_llist
-    _ (self: unit -> 'a llist -> string)
-    typ_a (fa: unit -> 'a -> string) = object
-  inherit ['a, unit, string, unit, string] class_llist
-  inherit ['a] wtfo_logic "xxx" self "yyy"
-      (fun () l -> wtfo_alist "bbb" (wtfo_logic "ccc" (fa ())) "ddd" (self()) l)
+(*  Now for llist *)
+class wtfo_llist
+    (_:string) self
+  = object
+  inherit [int, unit, string, unit, string] class_llist
+  inherit [(int logic, 'b logic) alist as 'b] wtfo_logic "xxx" (fun () _ -> "3")
+      "yyy" (fun () _ -> ""
+        (* wtfo_alist "bbb" (fun _ -> "4") *)
+        (*   "bbb" (fun _ -> "4")  Nil *)
+      )
+
+      (* (fun () l -> wtfo_alist "bbb" (wtfo_logic "ccc" (fa ())) "ddd" (self()) l) *)
 end
 
-(* let (_:int) = new wtfo_llist *)
+let _:int = new wtfo_llist
 
 let wtfo_llist typ_a (fa: 'a -> string) (t: 'a llist) =
   let typ_self = sprintf "%s llist" typ_a in
+  let o self =
+    new wtfo_llist typ_self self typ_a (fun () -> fa)
+  in
   fix0 (fun self t ->
-    gcata_llist (new wtfo_llist typ_self (fun () -> self) typ_a (fun () -> fa)) () t
-    ) t
+    gcata_logic (o (fun () _ -> "")) () t
+  ) t
 
-
+let (_:int) = wtfo_llist
 let () =
-  printf "%s\n%!" @@ wtfo_llist "int" (sprintf "%d") @@
+  printf "%s\n%!" @@ wtfo_llist "int" (sprintf "%d") @@  
     Value (Cons (1, Value Nil))

@@ -115,7 +115,7 @@ let _ = printf "Original: %s\nMapped: %s\n"
     (show_logic id (Value "a"))
     (show_logic id (gmap_logic (fun () x -> x ^ "!") (Value "a")))
 
-(* -------------------------------- Logical lists --------  ---------------------- *)
+(* -------------------------------- Logical lists ------------------------------ *)
 
 type 'a llist = ('a logic, 'a llist) alist logic
 

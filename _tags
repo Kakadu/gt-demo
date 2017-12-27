@@ -1,4 +1,1 @@
-true: bin_annot
-<src/demo07*.*> or <src/demo08*.*>: rectypes
-
-
+true: bin_annot, rectypes

@@ -127,7 +127,8 @@ class virtual ['a, 'ia, 'sa, 'inh, 'syn] class_llist =
 class ['a] show_llist self fa =
   object
     inherit ['a, unit, string, unit, string] class_llist
-    inherit [('a logic, 'a llist) alist] show_logic self (fun l -> show_alist (show_logic fa) self l)
+    inherit [('a logic, 'a llist) alist] show_logic self
+        (fun l -> show_alist (show_logic fa) self l)
   end
 
 class ['a, 'b] map_llist self fa =

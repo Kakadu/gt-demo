@@ -1,4 +1,4 @@
-.PHONY: all clean pdf
+.PHONY: all clean celan pdf
 all:
 	ocamlbuild -use-ocamlfind src/demo01adt.native src/demo02polyvars.native \
 		src/demo03inhmatter.native src/demo05mutal.native \
@@ -8,7 +8,8 @@ all:
 pdf:
 	pdflatex main.tex
 
+celan: clean
 clean:
 	@$(RM) -f 
-	@$(RM) -f *.out *.bak *.pdf *~ *.native
+	@$(RM) -f *.out *.aux *.log *.bak *.pdf *~ *.native
 

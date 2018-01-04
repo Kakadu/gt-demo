@@ -1,8 +1,8 @@
-(* from https://github.com/dboulytchev/GT/blob/master/regression/test004.ml *)
+(* mutal recursion *)
 open Utils
 open Printf
 
-(* mutal recursion *)
+
 type a = A of b | C
 and  b = B of a | D
 

@@ -380,7 +380,7 @@ let rec gcata_t tr inh x = gcata_$\tau$ tr inh x
 \end{lstlisting}
 Where \lstinline{tr} is a transformation object, \lstinline{inh} is an initial inherited attribute and \lstinline{x} is the value being transformed.
 
-Implementation of an interface class for \lstinline{t} is just an inheritance of  $\tau$'s interface class with right type parameters and arguments. The $\tau$'s interface class has a structure like
+Implementation of an interface class for \lstinline{t} is just an inheritance of  $\tau$'s interface class with right type parameters and arguments. We assume below that all types used on right hand side of the declaration of type \lstinline{t} are available in the scope where we declare a class, although it could be not true (see \autoref{chap:pitfalls} for details). The $\tau$'s interface class has a structure like
 \begin{lstlisting}
 class [$\overline{'a_i,'sa_i,'ia_i}$, $'inh$, $'syn$] class_$\tau$ = object..end
 \end{lstlisting}
@@ -414,8 +414,12 @@ We are also able to construct transformation functions for every $b_i$:
  \item There is no polymorphic type parameters that doesn't have transformation function because it contradicts typechecking process of type declaration because Haskell-style existentional types has another syntax in OCaml.
 \end{itemize}
 
+\section{Corner Cases}
+\label{chap:pitfalls}
 
+\subsection{Can't decide representation from RHS of type declaration}
 
+\subsection{Types used in type declaration go out of scope}
 
 \section{xxx}
 \begin{lstlisting}

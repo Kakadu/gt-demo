@@ -5,4 +5,5 @@ _build
 *.aux
 *.pdf
 *.log
-
+*.cut
+/*.backup

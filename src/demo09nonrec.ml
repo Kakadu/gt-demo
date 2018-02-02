@@ -31,8 +31,8 @@ class ['a] show_t self fa =
         (fun () l -> show_t fa () l)
   end
 let gcata_t = gcata_toption
-(* will not typecheck *)
 let show_t fa t = Utils.fix0 (fun self -> gcata_t (new show_t self fa) ()) t
+(* for type alias we can always put definition after constructor *)
 type nonrec 'a t = 'a t option
 let () =
   Printf.printf "%s\n%!" @@ show_t (fun () -> Utils.id) (Some (P "ppp"))
@@ -49,8 +49,25 @@ module Experiment2 = struct
     method c_Foo () x = Printf.sprintf "Foo(%s)" (show_t (fun () -> string_of_int) () x)
   end
   type nonrec t = Foo of int t
+  (* for definitions of algebraic nonrec datatypes which shadows other type
+     we onliged to put type definition before gcata
+  *)
   let gcata_t tr inh = function Foo x -> tr#c_Foo inh x
   let show_t () t = Utils.fix0 (fun self -> gcata_t (new show_t self)) () t
   let () =
     Printf.printf "%s\n%!" @@ show_t ()  (Foo (P 25))
+
+  (* now let's try to extend generated class *)
+  class attempt_show self = object
+    inherit show_t self
+    method! c_Foo () x =
+      (* it's not obvious what canwe do with the value of shadowed type but it will be
+         a end-user's issue *)
+      ">..<"
+  end
+
+  let attempt_show () t = Utils.fix0 (fun self -> gcata_t (new attempt_show self)) () t
+  let () =
+    Printf.printf "%s\n%!" @@ attempt_show () (Foo (P 77))
+
 end

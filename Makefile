@@ -1,9 +1,10 @@
 .PHONY: all clean celan pdf
 
-.DEFAULT_GOAL=pdf
+.DEFAULT_GOAL=all
 
 all:
-	ocamlbuild -use-ocamlfind src/demo01adt.native src/demo02polyvars.native \
+	ocamlbuild -use-ocamlfind -classic-display \
+		src/demo01adt.native src/demo02polyvars.native \
 		src/demo03inhmatter.native src/demo05mutal.native \
 		src/demo08argcount.native src/demo04option.native \
 		src/demo06.native src/demo07lists.native \
@@ -14,6 +15,6 @@ pdf:
 
 celan: clean
 clean:
-	@$(RM) -f 
-	@$(RM) -f *.out *.aux *.log *.bak *.pdf *~ *.native
+	@$(RM) -r _build
+	@$(RM) *.out *.aux *.log *.bak *.pdf *~ *.native
 

@@ -188,7 +188,8 @@ Text of abstract \ldots.
 
 %% Keywords
 %% comma separated list
-\keywords{keyword1, keyword2, keyword3}  %% \keywords are mandatory in final camera-ready submission
+\keywords{datatype-generic programming, object-oriented programming, code reuse}
+%% \keywords are mandatory in final camera-ready submission
 
 
 %% \maketitle
@@ -260,15 +261,7 @@ type ($a_1$, ..., $a_n$) typename =
   (* polymorphic variants *)
   | [ `$C_1$ of $t_{11}$ * ... * $t_{1 n_1}$ | ... | `$C_k$ of $t_{k1}$ * ... * $t_{k n_k}$ ]
   (* type applications *)
-  | ($t_1$, ..., $t_n$) othername
-\end{lstlisting}
-All type declarations can be splitted in two groups: the ones where we know the type structure (constrcutors, their arity, etc.) from its declaration and the ones where we doesn't. We can get the latter by using type applications during the type declaration, usually in the top-most position. For example, we know the structure of type 
-\begin{lstlisting}
-type ('a, 'b) alist = Nil | Cons of 'a * 'b
-\end{lstlisting}
-but we can't say anything about how to construct values of type \listinline{'a list} looking only on its type declaration:
-\begin{lstlisting}
-type 'a list = ('a, 'a list) alist
+  | ($t_1$, ..., $t_  
 \end{lstlisting}
 
 

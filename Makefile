@@ -8,7 +8,8 @@ all:
 		src/demo03inhmatter.native src/demo05mutal.native \
 		src/demo08argcount.native src/demo04option.native \
 		src/demo06.native src/demo07lists.native \
-		src/demo09nonrec.native
+		src/demo09nonrec.native \
+		src/demo10ulc.native 
 
 pdf:
 	pdflatex main.tex

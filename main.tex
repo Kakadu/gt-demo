@@ -85,6 +85,9 @@ language=ocaml
 }
 \let\listinline\lstinline
 
+\usepackage{minted}
+\usemintedstyle{rrt}
+
 \begin{document}
 
 %% Title information
@@ -261,7 +264,7 @@ type ($a_1$, ..., $a_n$) typename =
   (* polymorphic variants *)
   | [ `$C_1$ of $t_{11}$ * ... * $t_{1 n_1}$ | ... | `$C_k$ of $t_{k1}$ * ... * $t_{k n_k}$ ]
   (* type applications *)
-  | ($t_1$, ..., $t_  
+  | ($t_1$, ..., $t_n$) $\tau$
 \end{lstlisting}
 
 
@@ -413,6 +416,41 @@ We are also able to construct transformation functions for every $b_i$:
 \subsection{Can't decide representation from RHS of type declaration}
 
 \subsection{Types used in type declaration go out of scope}
+
+\section{Four ways to add types to visitor classes}
+\subsection{Visitors (polymorphic and monomorphic)}
+Monomorphic approach
+\begin{lstlisting}
+method virtual  visit_'a : _
+method visit_container :
+  'env . 'env -> 'a container -> ...
+\end{lstlisting}
+Pros: no need of time annotations
+\begin{lstlisting}
+method visit_container :
+  'env 'a .
+    ('env -> 'a -> ...) ->
+    'env -> 'a container -> ...
+\end{lstlisting}
+\begin{itemize}
+ \item Cons: needs type annotations.
+ \item Pros: Extra functions allow support of non-regular datatypes.
+ \item Cons: doesn't support fold visitor (declaring map using fold).
+ \item Pros: composable
+ \item Cons: Doesn't work correctly for type t2 in 
+	  \begin{lstlisting}
+          type ('a,'b) t = Foo of 'a * 'b
+          type 'a t2 = ('a, int) t
+          \end{lstlisting}
+\end{itemize}
+
+
+% \begin{minted}{ocaml}
+% method visit_container :
+% 'env 'a .
+%   ('env -> 'a -> ...) ->
+%   'env -> 'a container -> ... 
+% \end{minted}
 
 \section{xxx}
 \begin{lstlisting}

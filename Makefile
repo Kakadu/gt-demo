@@ -12,7 +12,7 @@ all:
 		src/demo10ulc.native 
 
 pdf:
-	pdflatex main.tex
+	pdflatex -shell-escape main.tex
 
 celan: clean
 clean:

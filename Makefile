@@ -9,7 +9,8 @@ all:
 		src/demo08argcount.native src/demo04option.native \
 		src/demo06.native src/demo07lists.native \
 		src/demo09nonrec.native \
-		src/demo10ulc.native 
+		src/demo10ulc.native  \
+		src/demo300garrique.native
 
 pdf:
 	pdflatex -shell-escape main.tex

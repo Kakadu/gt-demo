@@ -3,7 +3,6 @@ _build
 
 *.out
 *.aux
-*.pdf
 *.log
 *.cut
 /*.backup

@@ -248,6 +248,9 @@ Text of abstract \ldots.
 % let iter = function A -> () | B x -> iter x;;
 % \end{lstlisting}
 
+% \section{WTF we are doing this}
+% Say about inheritance, \lstinline{ppx_visitors}, ineritance problem for type aliases, grammar-like intuition: inherited and synthesized attributes, triples of type parameters
+
 \section{Sorts of types}
 % $\overline{remark~how~to~write~upper~line}$
 % 
@@ -273,11 +276,12 @@ type ($a_1$, ..., $a_n$) typename =
   (* type abbrevations (a.k.a. type aliases) : application of types to other types *)
   | ($t_1$, ..., $t_n$) $\tau$
 \end{lstlisting}
-Currently \textbf{not} supported:
+Current limitations:
 \begin{itemize}
  \item Using object types, module types and functional types in type declarations.
  \item Constraints on type declrations are not being taken to account
  \item GADTs are treated as simple algebraic data types.
+ \item ADT with record constructors.
  \item Generated code will typecheck only for \textbf{regular} type declarations.
  \item Type declarations with \verb=nonrec= keyword.
 \end{itemize}
@@ -290,31 +294,29 @@ Currently \textbf{not} supported:
  \item \textit{Interface class} который определяет тип всех трансформаций, которые могут быть применены для значения типа \lstinline{t}.
  \item \textit{Generic catamorphism}, который позволяет применить конкретную трансформациюю к значению типа \lstinline{t}.
 \end{itemize}
+
 А также два соответсвующих объявления в файле интерфейса.
-\begin{itemize}
- \item \textit{Interface class} который определяет тип всех трансформаций, которые могут быть применены для значения типа \lstinline{t}.
- \item \textit{Generic catamorphism}, который позволяет применить конкретную трансформациюю к значению типа \lstinline{t}.
-\end{itemize}
+
 
 Для каждого вида трансформации типа \lstinline{type ($a_1$, ..., $a_n$) t} в файле реализации генерируется:
 \begin{itemize}
- \item \textit{Класс трансформации}, который наследуюет interface class, принимает функции-трансформации аргементов в момент конструирования и 
+ \item \textit{Класс трансформации}, который наследует interface class, принимает функции-трансформации аргементов в момент конструирования и 
 	определяет как именно осуществляется трансформация для значения типа \lstinline{type ($a_1$,...,$a_n$) t}.
  \item Функция трансформации для \lstinline{type ($a_1$, ..., $a_n$) t}, которая принимает функции-трансформации аргументов, инстанциирует
 	класс трансформации и применяет трансформацию.
 \end{itemize}
 Аналогично, два объявления в файле интерфейса.
 
-Чтобы сгенерировать реализицию некоторого вида трансформации для \lstinline{type ($a_1$, ..., $a_n$) t}, необходимо иметь в пространстве имен
+Чтобы сгенерировать реализицию некоторого вида трансформации для \lstinline{type ($a_1$, ..., $a_n$) t}, необходимо в пространстве имениметь 
 трасформации для всех типов, которые входят в RHS объявления типа. Если же объявление типа является type abbrevation (т.е. 
  \lstinline{type ($a_1$, ..., $a_n$) t = ($b_1$, ..., $b_m$) $\tau$} или для полиморфных вариантов 
  \lstinline{type ($a_1$, ..., $a_n$) t = [ ($b_1$, ..., $b_m$) $\tau$ | ... ]}) 
  то, дополнительно необходимо иметь класс трансформации для типа
  $\tau$.
 
-Все классы трансформации принимает (n+1) параметров: функция трансформации рекрсивного вхождения объявления типа 
+Все классы трансформации принимают (n+1) параметров: одна функция трансформации рекрсивного вхождения объявления типа 
 (здесь мы сужаем множество поддерживаемых определений типов только до регулярных) и функции-трансформации для типовых параметров. Для процесса
-генерации является существенным, чтобы все классы, определяющую трансформацию, имели сходную сигнатуру, выводимую только из имени типа 
+генерации является существенным, чтобы все классы, определяющие трансформацию, имели сходную сигнатуру, выводимую только из имени типа 
 и количества его параметров. Поэтому, функцию-трансформацию рекурсивного вхождения типа нельзя опустить для нерекурсивных типов.
 
 Для взаимно-рекурсивных определений типов затруднительно иметь трансформацию для всех объявляемых типов в момент объявления класса 
@@ -325,15 +327,17 @@ Currently \textbf{not} supported:
 Таким образом, все сгенерированные классы для взаимно-рекурсивных определений имеют такую же форму в сигнатуре, как и классы для
 одиночных определений типов.
 
-В библиотеке также поддерживаются объявление полиморфных вариантов, которые оказывают влияние на форму сигнатура всех генерируемых классов.
-Для поддержки возможности объединения полиморфных вариантов при объявлении типа все классы имеют дополнительных параметр, который 
+В GT также поддерживаются объявление полиморфных вариантов, которые оказывают влияние на форму сигнатуры всех генерируемых классов.
+Для поддержки возможности объединения полиморфных вариантов при объявлении типа все классы имеют дополнительный параметр, который 
 является свободной типовой переменной в случае класса для обычных объявлений типов, и является \textit{открытой} версией типа если класс 
-соответствует полиморфному вариантному типу. Также, полиморфный вариантный тип $t$ требует дополнительных аннотаций открытости при объявлении
+соответствует полиморфному вариантному типу. Также, полиморфный вариантный тип требует дополнительных аннотаций открытости при объявлении
 сигнатуры функции-трансформации для трасформации вида \verb=gmap= (a.k.a. functor).
 
 \section{Что конкретно генерируется для разных объявлений типов}
+\lstinline{type ($a_1$, ..., $a_n$) t = ....}
+
 \begin{itemize}
-  \item A class where methods correspond to constructor names. We will call it an \textit{interface class} for \lstinline{t}. For normal and poly variants implementation is strightforward. For other sorts of types call will be populated by inheritance
+  \item В \textit{interface class} для типа \lstinline{t} методы соответсвуют конструкторам агебраического типа или полиморфного варианта. 
   \begin{lstlisting}
   class virtual [ $class~arguments$ ] class_t = object
     (* either *)
@@ -344,31 +348,32 @@ Currently \textbf{not} supported:
       method virtual c_$C_i$: 'inh -> $curried~constructor~arguments$ -> 'syn
   end
   \end{lstlisting}
-  For type application of type $\tau$ to the args $t_1$ ... $t_n$: 
+  Для type abbrevation \lstinline{type ($a_1$, ..., $a_n$) t = ($t_1$, ..., $t_n$) $\tau$} используется наследование, чтобы объявить класс : 
   \begin{lstlisting}
   class virtual [ $class~arguments$ ] class_t = object
     inherit [$with~application\!-\!specific~arguments$] class_$\tau$
   end
   \end{lstlisting}
 
-  For every $n$-parametric type ($n>=0$) there are $3*n+2$ \textit{class arguments}. They are:
+  For every $n$-parametric type ($n>=0$) there are $3*n+2+1$ \textit{class arguments}. They are:
     \begin{center}
-        $\overline{a_i, sa_i, ia_i}$, $'inh$, $'syn$
+        $\overline{'a_i, 'ia_i, 'sa_i}$, $'inh$, $'syn$,$'extra$
     \end{center}
   where \begin{itemize}
           \item $a_i$ is an $i$-th paramter of the type being processed;
           \item $sa_i$ is a synthesized attribute for type parameter $a_i$;
           \item $ia_i$ is an inherited attribute for type parameter $a_i$;
           \item $'syn$ is a synthesized attribute for the whole type.
+          \item $'extra$ это открытый полиморфный вариант, который сейчас объявляется, либо wildcard для остальных объявлений типов.
   \end{itemize}
   
   Although there some differences for type declarations that involve mutal recursion.
   
-  \item A \textit{generic catamorphism} $gcata_t$ (for the type $t$ being processed) which will traverse the type and apply transformation. It is defined using pattern-matching for the variant types or as a composition with generic catamorphism $gcata_\tau$ if type $t$ is constructed as an application of type $\tau$.
-  \item For every transformation method $tr$ a concrete class with transformation's implementation
+  \item \textit{Generic catamorphism} $gcata_t$ (для объявления типа $t$) который принимает значение типа $t$ и применяет трансформацию. It is defined using pattern-matching for the variant types or as a composition with generic catamorphism $gcata_\tau$ if type $t$ is constructed as an application of type $\tau$.
+  \item Для каждого вида трансформации $tr$ concrete класс с реализацией этой трансформации:
 
   \begin{lstlisting}
-  class [ $tr~class~arguments$ ] $tr$_t self $f\!a_1$ ... $f\!a_n$ = object
+  class [ $tr~class~arguments$ ] $tr$_t $self$ $f\!a_1$ ... $f\!a_n$ = object
     inherit [ $inherited~class~arguments$ ] class_t
     (* implementation of virtual methods if any *)
   end
@@ -413,9 +418,9 @@ end
 \end{lstlisting}
 and use this function to specify a transformation of second argument during instantiation of the class \lstinline{show_alist}.
 
-\textbf{Note}. This \lstinline{self} argument is not admissable for nonrecursive types because we instantiate the class \lstinline{show_alist} by looking \textit{only} on application \lstinline{('a,'a list) alist} of this type in the definition of the type \lstinline{'a list}. This means that we know nothing about recursivity of the type \lstinline{('a,'b) alist} during the generation of transformations for the type \lstinline{'a list}.
-
-This remark brings some complications when dealing with mutally recursive types \lstinline{$t_1$},...,\lstinline{$t_n$} where we need to declare two classes per every pair of type $t_i$ and transformation \lstinline{trans}. The first class \lstinline{trans_stub_$t_i$} for type \lstinline{$t_i$} will have $n-1$ extra constructor parameters for functional transformers that process types declared with \lstinline{$t_i$} recursively. Using this classes we can declare $n$ transformation functions for every type $t_i$. We abuse mutal recursion to make this transformation functions have the same interface that transformation functions for non-recursive types have. After declaring transformation functions we can declare transformation classes \lstinline{trans_$t_i$} with desired interface by partially applying constructors of \lstinline{trans_stub_$t_i$} to \lstinline{n-1} transformation functions.
+% \textbf{Note}. This \lstinline{self} argument is not admissable for nonrecursive types because we instantiate the class \lstinline{show_alist} by looking \textit{only} on application \lstinline{('a,'a list) alist} of this type in the definition of the type \lstinline{'a list}. This means that we know nothing about recursivity of the type \lstinline{('a,'b) alist} during the generation of transformations for the type \lstinline{'a list}.
+% 
+% This remark brings some complications when dealing with mutally recursive types \lstinline{$t_1$},...,\lstinline{$t_n$} where we need to declare two classes per every pair of type $t_i$ and transformation \lstinline{trans}. The first class \lstinline{trans_stub_$t_i$} for type \lstinline{$t_i$} will have $n-1$ extra constructor parameters for functional transformers that process types declared with \lstinline{$t_i$} recursively. Using this classes we can declare $n$ transformation functions for every type $t_i$. We abuse mutal recursion to make this transformation functions have the same interface that transformation functions for non-recursive types have. After declaring transformation functions we can declare transformation classes \lstinline{trans_$t_i$} with desired interface by partially applying constructors of \lstinline{trans_stub_$t_i$} to \lstinline{n-1} transformation functions.
   
 For an example with mutal recursion see \href{https://github.com/Kakadu/gt-demo/blob/master/src/demo05mutal.ml}{demo05} in the repository.
 
@@ -431,7 +436,7 @@ type ($a_1$,...,$a_n$)t = ($b_1$,...,$b_m$)$\tau$ as 'smth
 \end{lstlisting}
 which is a \textit{type alias} of type $\tau$ with $m$ type arguments $b_1$...$b_m$. The term \lstinline{as 'smth} which constraints type variable \lstinline{'smth} to be equal to left hand side of type declaration is optional.
 
-Values of type $t$ can be constructed using the constructors from type $\tau$, so the generic catamprphism will be the same:
+Values of type $t$ can be constructed using the constructors from type $\tau$, so the generic catamorphism will be the same:
 \begin{lstlisting}
 let rec gcata_t tr inh x = gcata_$\tau$ tr inh x
 \end{lstlisting}
@@ -471,14 +476,16 @@ We are also able to construct transformation functions for every $b_i$:
  \item There is no polymorphic type parameters that doesn't have transformation function because it contradicts typechecking process of type declaration because Haskell-style existentional types has another syntax in OCaml.
 \end{itemize}
 
-\section{Corner Cases}
-\label{chap:pitfalls}
-
-\subsection{Can't decide representation from RHS of type declaration}
-
-\subsection{Types used in type declaration go out of scope}
+% \section{Corner Cases}
+% \label{chap:pitfalls}
+% 
+% \subsection{Can't decide representation from RHS of type declaration}
+% 
+% \subsection{Types used in type declaration go out of scope}
+% Случай \listinline{nonrec} типов.
 
 \section{Four ways to add types to visitor classes}
+Виды типизации методов класса:
 \begin{enumerate}
 
  \item Monomorphic approach (visitors)
@@ -489,7 +496,7 @@ We are also able to construct transformation functions for every $b_i$:
     \end{lstlisting}
     \begin{itemize}
     \item Pros: Не нужно генерировать аннотации типов, что упрощает генерацию.
-    \item Cons: Некомпозициональны
+    \item Cons: Некомпозициональны (ссылка на главу у Потье)
     \end{itemize}
     
   \item Polymorphic approach (visitors)
@@ -504,13 +511,13 @@ We are also able to construct transformation functions for every $b_i$:
     \item Pros: Функции, передаваясь в каждый метод явно, позволяют поддержать нерегулярные типы. 
     (Хотя остается вопрос, зачем тогда универсальная квантификация)
     \item Cons: Нужны явные аннотации типов.
-    \item Cons: Не поддерживаются для fold в библиотеке visitors (похоже так что-то с типами, в никаких статьях про это вроде не писалось).
+    \item Cons: Не поддерживаются для fold в библиотеке visitors (похоже там что-то с типами, в никаких статьях про это вроде не писалось).
     \item Cons: В некоторых случаях генерируют код, не проходящий проверку типов
 	  \begin{lstlisting}
 	  type ('a,'b) t = Foo of 'a * 'b (* OK *)
-	  type 'a t2 = ('a, int) t    (* compilation error *)
+	  type 'a t2 = ('a, int) t (* compilation error in generated code *)
 	  \end{lstlisting}
-	  или пример из руководтсва по библиотеке (глава 3.1 из \cite{visitors_manual})
+	  или пример из руководства по библиотеке (глава 3.1 из \cite{visitors_manual})
 	  \begin{lstlisting}
 	  type expr = E of expr oexpr [@@unboxed]
 	  [@@deriving visitors { variety = "map"; polymorphic = true }]
@@ -525,26 +532,53 @@ We are also able to construct transformation functions for every $b_i$:
     \end{lstlisting}
     \begin{itemize}
     \item Pros: Два примера выше начинают работать.
+    \item Cons: Нельзя выразить gmap через fold (ссылка на главу Потье).
     \end{itemize}
     
   \item Подход библиотеки Generic Transformes: функции-трансформации для аргументов передаются явно при создании класса.
     \begin{itemize}
     \item Cons: не поддерживаются нерегулярные типы
-    \end{itemize}
-    
+    \item Можно выразить gmap через fold \href{https://github.com/Kakadu/gt-demo/blob/master/src/demo06.ml}{ссылка на код}.
+    \end{itemize}    
 \end{enumerate}
 
-% \begin{minted}{ocaml}
-% method visit_container :
-% 'env 'a .
-%   ('env -> 'a -> ...) ->
-%   'env -> 'a container -> ... 
-% \end{minted}
+Виды типизации самого класса:
+\begin{enumerate}
+ \item À la Потье
+ \begin{lstlisting}
+ class ['self] classname = object (self: 'self) ... end
+ \end{lstlisting}
+    \begin{itemize}
+    \item Pros: Кратко: только один типовый параметр
+    \item Cons: Невозможно сгенерировать сигнатуру в файле интерфейса
+    \item Cons: Не получится поддержать объединение полиморфных вариантов: там требуются аннотоации открытости (для этого у нас используется дополнительный параметр) которые в данном подходе нет возможности вставить.
+    \end{itemize}
+ 
 
-\section{xxx}
+ \item À la GT
+ \begin{lstlisting}
+ class [$\overline{'a_i, 'ia_i, 'sa_i}$, $'inh$, $'syn$,$'extra$] classname = object ... end
+ \end{lstlisting}
+ \begin{itemize}
+    \item Cons: Длиннее
+    \item Pros: Сигнатура генерируется 
+    \item Pros: Объединение полиморфных вариантов работает.
+    \end{itemize}
+ 
+\end{enumerate}
+
+\section{Техничесие особенности GT}
+Возможно, надо будет привести пример, что если совсем хочется использовать неподходящие типы, то можно абстрагироваться до:
 \begin{lstlisting}
-asdf
+type ('a,'b) t = ('a -> 'b) $\tau$
 \end{lstlisting}
+И показать пример синтаксиса как указать кастомную функцию-трансформацию для преобразования типового параметра $\tau$.
+ 
+\section{Open questions}
+\begin{itemize}
+ \item What is generic catamorphism for \lstinline{type 'a antiphantom = 'a}? 
+\end{itemize}
+
 
 %% Bibliography
 %\bibliography{bibfile}

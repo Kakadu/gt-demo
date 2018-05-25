@@ -1,6 +1,6 @@
 .PHONY: all clean celan pdf
 
-.DEFAULT_GOAL=all
+.DEFAULT_GOAL=pdf
 
 all:
 	ocamlbuild -use-ocamlfind -classic-display \

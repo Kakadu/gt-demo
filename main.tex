@@ -227,26 +227,26 @@ Text of abstract \ldots.
   National Science Foundation.
 \end{acks}
 
-\section{Regularity and non-regularity}
-In a regular datatype declaration, occurrences of the declared type on the right-hand
-side  of  the  defining  equation  are  restricted  to  copies  of  the  left-hand  side,  so
-the recursion  is "tail recursive"
-\footnote{from http://www.cs.ox.ac.uk/richard.bird/online/BirdMeertens98Nested.pdf}.
-
-For example the \lstinline{type ('a,'b) t = A | B of ('a, int) t} is non-regular and we need to use
-\textit{polymorphic recursion} to iterate over it. Without explicit annotation the iteration
-function will have the wrong type.
-\begin{lstlisting}
-# let rec iter: 'a 'b . ('a, 'b) t -> unit = function A -> () | B x -> iter x;;
-val iter : ('a, 'b) t -> unit = <fun>
-# let rec iter = function A -> () | B x -> iter x;;
-val iter : ('a, int) t -> unit = <fun>
-\end{lstlisting}
-In that particular case unfolding can help to do what we want without explicit type annotations
-\begin{lstlisting}
-let rec iter = function A -> () | B x -> iter x;;
-let iter = function A -> () | B x -> iter x;;
-\end{lstlisting}
+% \section{Regularity and non-regularity}
+% In a regular datatype declaration, occurrences of the declared type on the right-hand
+% side  of  the  defining  equation  are  restricted  to  copies  of  the  left-hand  side,  so
+% the recursion  is "tail recursive"
+% \footnote{from http://www.cs.ox.ac.uk/richard.bird/online/BirdMeertens98Nested.pdf}.
+% 
+% For example the \lstinline{type ('a,'b) t = A | B of ('a, int) t} is non-regular and we need to use
+% \textit{polymorphic recursion} to iterate over it. Without explicit annotation the iteration
+% function will have the wrong type.
+% \begin{lstlisting}
+% # let rec iter: 'a 'b . ('a, 'b) t -> unit = function A -> () | B x -> iter x;;
+% val iter : ('a, 'b) t -> unit = <fun>
+% # let rec iter = function A -> () | B x -> iter x;;
+% val iter : ('a, int) t -> unit = <fun>
+% \end{lstlisting}
+% In that particular case unfolding can help to do what we want without explicit type annotations
+% \begin{lstlisting}
+% let rec iter = function A -> () | B x -> iter x;;
+% let iter = function A -> () | B x -> iter x;;
+% \end{lstlisting}
 
 \section{Sorts of types}
 % $\overline{remark~how~to~write~upper~line}$
@@ -283,15 +283,55 @@ Currently \textbf{not} supported:
 \end{itemize}
 
 
-\section{What is being generated in general}
+\section{Какие объявления генерируются по объявлению типа}
 
-Для каждого объявления типа  \lstinline{type ($a_1$, ..., $a_n$) t} генерируются в файле реализации:
+Для каждого объявления типа \lstinline{type ($a_1$, ..., $a_n$) t} генерируются в файле реализации:
 \begin{itemize}
  \item \textit{Interface class} который определяет тип всех трансформаций, которые могут быть применены для значения типа \lstinline{t}.
  \item \textit{Generic catamorphism}, который позволяет применить конкретную трансформациюю к значению типа \lstinline{t}.
-\end{itemize},
-а также два соответсвующих объявления в файле сигнатуры.
+\end{itemize}
+А также два соответсвующих объявления в файле интерфейса.
+\begin{itemize}
+ \item \textit{Interface class} который определяет тип всех трансформаций, которые могут быть применены для значения типа \lstinline{t}.
+ \item \textit{Generic catamorphism}, который позволяет применить конкретную трансформациюю к значению типа \lstinline{t}.
+\end{itemize}
 
+Для каждого вида трансформации типа \lstinline{type ($a_1$, ..., $a_n$) t} в файле реализации генерируется:
+\begin{itemize}
+ \item \textit{Класс трансформации}, который наследуюет interface class, принимает функции-трансформации аргементов в момент конструирования и 
+	определяет как именно осуществляется трансформация для значения типа \lstinline{type ($a_1$,...,$a_n$) t}.
+ \item Функция трансформации для \lstinline{type ($a_1$, ..., $a_n$) t}, которая принимает функции-трансформации аргументов, инстанциирует
+	класс трансформации и применяет трансформацию.
+\end{itemize}
+Аналогично, два объявления в файле интерфейса.
+
+Чтобы сгенерировать реализицию некоторого вида трансформации для \lstinline{type ($a_1$, ..., $a_n$) t}, необходимо иметь в пространстве имен
+трасформации для всех типов, которые входят в RHS объявления типа. Если же объявление типа является type abbrevation (т.е. 
+ \lstinline{type ($a_1$, ..., $a_n$) t = ($b_1$, ..., $b_m$) $\tau$} или для полиморфных вариантов 
+ \lstinline{type ($a_1$, ..., $a_n$) t = [ ($b_1$, ..., $b_m$) $\tau$ | ... ]}) 
+ то, дополнительно необходимо иметь класс трансформации для типа
+ $\tau$.
+
+Все классы трансформации принимает (n+1) параметров: функция трансформации рекрсивного вхождения объявления типа 
+(здесь мы сужаем множество поддерживаемых определений типов только до регулярных) и функции-трансформации для типовых параметров. Для процесса
+генерации является существенным, чтобы все классы, определяющую трансформацию, имели сходную сигнатуру, выводимую только из имени типа 
+и количества его параметров. Поэтому, функцию-трансформацию рекурсивного вхождения типа нельзя опустить для нерекурсивных типов.
+
+Для взаимно-рекурсивных определений типов затруднительно иметь трансформацию для всех объявляемых типов в момент объявления класса 
+трансформации (OCaml не поддерживает взаимно-рекурсивные определения между классами и функциями). Поэтому в файле реализации 
+для каждого объявления типа генерируются два класса, где первый имеет дополнительные параметры для функций-трансформаций
+взаимно-рекурсивных определений. После определения функций-трансформаций для объявляемых типов генерируются ещё несколько классов,
+которые наследуют предыдущие определения, конкретизируя функции-трансформации для объявляемых взаимно-рекурсивных типов. 
+Таким образом, все сгенерированные классы для взаимно-рекурсивных определений имеют такую же форму в сигнатуре, как и классы для
+одиночных определений типов.
+
+В библиотеке также поддерживаются объявление полиморфных вариантов, которые оказывают влияние на форму сигнатура всех генерируемых классов.
+Для поддержки возможности объединения полиморфных вариантов при объявлении типа все классы имеют дополнительных параметр, который 
+является свободной типовой переменной в случае класса для обычных объявлений типов, и является \textit{открытой} версией типа если класс 
+соответствует полиморфному вариантному типу. Также, полиморфный вариантный тип $t$ требует дополнительных аннотаций открытости при объявлении
+сигнатуры функции-трансформации для трасформации вида \verb=gmap= (a.k.a. functor).
+
+\section{Что конкретно генерируется для разных объявлений типов}
 \begin{itemize}
   \item A class where methods correspond to constructor names. We will call it an \textit{interface class} for \lstinline{t}. For normal and poly variants implementation is strightforward. For other sorts of types call will be populated by inheritance
   \begin{lstlisting}

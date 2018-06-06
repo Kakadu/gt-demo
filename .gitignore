@@ -6,3 +6,5 @@ _build
 *.log
 *.cut
 /*.backup
+*.bak
+

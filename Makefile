@@ -10,7 +10,8 @@ all:
 		src/demo06.native src/demo07lists.native \
 		src/demo09nonrec.native \
 		src/demo10ulc.native  \
-		src/demo300garrique.native
+		src/demo11ext.native  \
+
 
 pdf:
 	pdflatex -shell-escape main.tex

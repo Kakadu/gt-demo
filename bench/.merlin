@@ -1,0 +1,6 @@
+ B .
+ S .
+
+PKG core
+PKG core_bench
+FLG -rectypes

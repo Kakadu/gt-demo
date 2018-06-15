@@ -79,11 +79,8 @@ let map_list3 fa xs =
 
 (* Attempt 4 *)
 let fix2 f subj =
-  (* without inherited attribute *)
-  (* let was_here = ref false in *)
-  let fself_holder = ref (fun _ -> assert false) in
-  let rec knot subj = !fself_holder subj
-  in
+  let fself_holder = ref (fun _ -> failwith "self-transfomration called too early") in
+  let rec knot subj = !fself_holder subj in
   let fself = f knot in
   (* actual transformation was not yet executed *)
   fself_holder := fself;
@@ -96,7 +93,8 @@ let map_list4 fa t =
 
 let show_list4 fa t =
   fix2 (fun self ->
-    gcata_list (new show_list self (fun () -> fa))
+      (* let _ = ignore @@ self () Nil in (* crashes *) *)
+      gcata_list (new show_list self (fun () -> fa))
   ) () t
 
 open Core

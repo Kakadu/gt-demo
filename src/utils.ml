@@ -14,3 +14,4 @@ let fix f inh t =
   recurse inh t
 
 
+let unused _ _ = failwith "*** Using the unused ***"

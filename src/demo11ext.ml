@@ -225,8 +225,12 @@ let () =
     let open Lam in let open Abs in let open Let in  let open LetRec in
     LetRec ("z", App (Abs ("x", Var "x"), Var "z"), Abs ("x", Abs ("y", App (Var "x", Var "z"))))
   in
+  (* Original: App (Abs ("x", Var ("x")), Abs ("y", Var ("y"))) *)
   Printf.printf "Original: %s\n" (show_named l);
+  (* Converted: App (Abs ((), Var (0)), Abs ((), Var (0))) *)
   Printf.printf "Converted: %s\n" (show_nameless @@ convert l);
+  (* Converted: Let ((), Abs ((), Var (0)), Abs ((), Abs ((), App (Var (1), Var (2))))) *)
   Printf.printf "Converted: %s\n" (show_nameless @@ convert l2);
+  (* Converted: Let ((), App (Abs ((), Var (0)), Var (0)), Abs ((), Abs ((), App (Var (1), Var (2))))) *)
   Printf.printf "Converted: %s\n" (show_nameless @@ convert l3);
   ()

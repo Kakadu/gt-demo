@@ -51,7 +51,9 @@ end
 (* let (_:int) = new show_b_stub *)
 let __ = Obj.magic ()
 
-let ttt1 = (new show_a_stub, new show_b_stub)
+let ttt1 = ((fun x y z -> new show_a_stub x y z), (fun x y -> new show_b_stub x y))
+
+
 let myfix (a0, b0) =
   let rec show_a fl inh a = gcata_a (oa () fl) inh a
   and     oa () fl = a0 ob (show_a fl) fl
@@ -62,6 +64,8 @@ let myfix (a0, b0) =
 
 
 let (show_a, show_b) = myfix ttt1
+
+(* let (_:int) = show_a *)
 
 let _ =
   let show_string () s = s in

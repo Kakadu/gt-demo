@@ -10,7 +10,7 @@ all:
 		src/demo06.native src/demo07lists.native \
 		src/demo09nonrec.native \
 		src/demo10ulc.native  \
-		src/demo11ext.native  \
+		src/demo12mutal.native 
 
 
 pdf:

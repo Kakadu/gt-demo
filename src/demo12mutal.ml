@@ -2,6 +2,8 @@
 open Utils
 open Printf
 
+let __ = Obj.magic ()
+
 type 'l a = A of b     | C | E of 'l a | D of 'l
 and     b = I of int a | J | K of b
 and     c = string a
@@ -28,14 +30,58 @@ class virtual [ 'inh, 'syn ] class_b = object
   method virtual c_K   : 'inh ->     b -> 'syn
 end
 
-class ['l] show_a_stub (ob: unit -> (_,_) #class_b) fself fl = object
+
+(* Test 1: first argument of class is a record *)
+(* type ('inh, 'syn) hack_b = { b_hack : unit -> ('inh, 'syn) class_b }
+ * type ('inh, 'syn) hack_a = { a_hack : 'l . unit -> (unit -> 'l -> string) -> (unit, 'l, string, 'inh, 'syn) class_a }
+ *
+ * class ['l] show_a_stub (ob: (unit, string) hack_b) fself fl = object
+ *   inherit [unit, 'l, string, unit, string] class_a
+ *   method c_A () be = sprintf "A (%a)" (gcata_b @@ ob.b_hack ()) be
+ *   method c_C ()    = "C"
+ *   method c_E () a  = sprintf "E (%a)" fself a
+ *   method c_D () l  = sprintf "D (%a)" fl l
+ * end
+ * class show_b_stub (oa: (unit, string) hack_a) fself = object
+ *   inherit [unit, string] class_b
+ *   method c_I () a  =
+ *     (\* if type `a` is not used in b than fl doesn't matter
+ *        if it is uses we know the type of argument
+ *        if it is used with two different types than it is regularity restriction
+ *     *\)
+ *     let fl () _ =  assert false in
+ *     sprintf "I (%a)" (gcata_a @@ oa.a_hack () fl) a
+ *   method c_J ()    = "J"
+ *   method c_K () b  = sprintf "K (%a)" fself b
+ * end
+ *
+ *
+ * let (a0,b0) = (new show_a_stub, new show_b_stub)
+ *
+ *
+ * let myfix () =
+ *   let rec show_a fl inh a = gcata_a (oa () fl) inh a
+ *   and     oa () fl = { a_hack = (fun () -> a0 ob __ fl) }
+ *   and     ob ()    = { b_hack = (fun () -> b0 oa show_b)         }
+ *   and     show_b inh b = gcata_b (ob ()) inh b
+ *   in
+ *   (show_a, show_b)
+ *
+ *
+ * let (show_a, show_b) = myfix () *)
+
+
+
+(* Test 2 *)
+
+class ['l] show_a_stub ob fself fl = object
   inherit [unit, 'l, string, unit, string] class_a
-  method c_A () be = sprintf "A (%a)" (gcata_b @@ ob()) be
+  method c_A () be = sprintf "A (%a)" (gcata_b @@ ob ()) be
   method c_C ()    = "C"
   method c_E () a  = sprintf "E (%a)" fself a
   method c_D () l  = sprintf "D (%a)" fl l
 end
-class show_b_stub (oa: unit -> (unit -> 'l -> string) -> (_,'l,_,_,_) #class_a) fself = object
+class show_b_stub oa fself = object
   inherit [unit, string] class_b
   method c_I () a  =
     (* if type `a` is not used in b than fl doesn't matter
@@ -48,30 +94,35 @@ class show_b_stub (oa: unit -> (unit -> 'l -> string) -> (_,'l,_,_,_) #class_a) 
   method c_K () b  = sprintf "K (%a)" fself b
 end
 
-(* let (_:int) = new show_b_stub *)
-let __ = Obj.magic ()
+type typ_for_a = { a_func :
+                     'a . (unit -> (unit, string) class_b) ->
+                     (unit -> 'a a -> string) ->
+                     (unit -> 'a -> string) ->
+                     'a show_a_stub
+                 }
+type typ_for_b = { b_func :
+                     'a . (unit -> (unit -> int -> string) ->
+                           (unit, int, string, unit, string) class_a) ->
+                     (unit -> b -> string) ->
+                     show_b_stub
+                 }
+let (a0,b0) = ({ a_func = new show_a_stub}, {b_func = new show_b_stub})
 
-let ttt1 = ((fun x y z -> new show_a_stub x y z), (fun x y -> new show_b_stub x y))
-
-
-let myfix (a0, b0) =
+let myfix () =
   let rec show_a fl inh a = gcata_a (oa () fl) inh a
-  and     oa () fl = a0 ob (show_a fl) fl
-  and     ob ()    = b0 oa show_b
+  and     oa () fl = a0.a_func ob (show_a fl) fl
+  and     ob ()    = b0.b_func oa show_b
   and     show_b inh b = gcata_b (ob ()) inh b
   in
   (show_a, show_b)
 
+let (show_a, show_b) = myfix ()
 
-let (show_a, show_b) = myfix ttt1
-
-(* let (_:int) = show_a *)
-
-let _ =
-  let show_string () s = s in
-  let show_int    () n = string_of_int n in
-  printf "%s\n" @@ show_a show_int () (E C);
-  printf "%s\n" @@ show_a show_int () (A (I C));
-  printf "%s\n" @@ show_b () (I (A J));
-  printf "%s\n" @@ show_b () (K J);
-  ()
+(* let _ =
+ *   (\* let show_string () s = s in *\)
+ *   let show_int    () n = string_of_int n in
+ *   printf "%s\n" @@ show_a show_int () (E C);
+ *   printf "%s\n" @@ show_a show_int () (A (I C));
+ *   printf "%s\n" @@ show_b () (I (A J));
+ *   printf "%s\n" @@ show_b () (K J);
+ *   () *)

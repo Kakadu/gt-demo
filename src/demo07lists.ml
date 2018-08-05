@@ -31,16 +31,27 @@ let rec gcata_alist tr inh t =
   | Nil         -> tr#c_Nil inh
   | Cons (a, b) -> tr#c_Cons inh a b
 
-let show_alist fa fb t = fix0 (fun self ->
-    gcata_alist (new show_alist self (fun () -> fa) (fun () -> fb)) ()) t
+let show_alist fa fb t =
+  let save = ref None in
+  fix0 (fun self ->
+      let f =
+        match !save with
+        | None ->
+          let ans = gcata_alist (new show_alist self (fun () -> fa) (fun () -> fb)) () in
+          let () = save := Some ans in
+          ans
+        | Some ans -> ans
+      in
+      f
+    ) t
 
 let gmap_alist fa fb t = fix0 (fun self ->
     gcata_alist (new map_alist self (fun () -> fa) (fun () -> fb)) ()
   ) t
 
-let _ = printf "Original: %s\nMapped: %s\n"
-    (show_alist id string_of_int (Cons ("a", 1)))
-    (show_alist id string_of_int (gmap_alist (fun x -> x^"1") ((+)1) (Cons ("a", 1))))
+(* let _ = printf "Original: %s\nMapped: %s\n"
+ *     (show_alist id string_of_int (Cons ("a", 1)))
+ *     (show_alist id string_of_int (gmap_alist (fun x -> x^"1") ((+)1) (Cons ("a", 1)))) *)
 
 (* --------------------------------- Recursion! --------------------------------- *)
 
@@ -70,11 +81,23 @@ let rec gcata_list tr inh t = gcata_alist tr inh t
 *)
 
 let show_list fa t = fix (fun self () t ->
+    print_endline "AAA";
     gcata_list (new show_list self (fun () -> fa)) () t
   ) () t
 let map_list fa t = fix (fun self () t ->
     gcata_list (new map_list self (fun () -> fa)) () t
   ) () t
+
+let show_list fa t =
+  let save = ref None in
+  fix0 (fun self ->
+        match !save with
+        | None ->
+          let ans = gcata_list (new show_list self (fun () -> fa)) in
+          let () = save := Some ans in
+          ans
+        | Some ans -> ans
+    ) () t
 
 
 let _ = Printf.printf "Original: %s\n" (show_list string_of_int (Cons (1, Cons (2, Nil))))

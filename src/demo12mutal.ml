@@ -107,22 +107,34 @@ type typ_for_b = { b_func :
                      show_b_stub
                  }
 let (a0,b0) = ({ a_func = new show_a_stub}, {b_func = new show_b_stub})
+type a_trf  = { a_trf: 'a . (unit -> 'a -> string) -> unit -> 'a a -> string }
+type b_trf  = { b_trf:      unit -> b -> string }
+type oa_func= { oa_func: 'a . unit -> (unit -> 'a -> string) ->
+                              (unit, 'a, string, unit, string) class_a }
+type ob_func= { ob_func: unit -> (unit, string) class_b }
 
-let myfix () =
-  let rec show_a fl inh a = gcata_a (oa () fl) inh a
-  and     oa () fl = a0.a_func ob (show_a fl) fl
-  and     ob ()    = b0.b_func oa show_b
-  and     show_b inh b = gcata_b (ob ()) inh b
+
+let myfix (a0,b0) =
+  let rec show_a = { a_trf = fun fl inh a -> gcata_a (oa.oa_func () fl) inh a }
+  and     oa     = { oa_func = fun () fl -> a0.a_func ob.ob_func (show_a.a_trf fl) fl }
+  and     ob     = { ob_func = fun ()    -> b0.b_func oa.oa_func show_b.b_trf }
+  and     show_b = { b_trf = (fun inh b -> gcata_b (ob.ob_func ()) inh b) }
   in
   (show_a, show_b)
 
-let (show_a, show_b) = myfix ()
+let (fix_result_1, fix_result_2) = myfix (a0,b0)
+(* let (show_a, show_b) =
+ *   let {a_trf},{b_trf} = myfix (a0,b0) in
+ *   a_trf,b_trf *)
 
-(* let _ =
- *   (\* let show_string () s = s in *\)
- *   let show_int    () n = string_of_int n in
- *   printf "%s\n" @@ show_a show_int () (E C);
- *   printf "%s\n" @@ show_a show_int () (A (I C));
- *   printf "%s\n" @@ show_b () (I (A J));
- *   printf "%s\n" @@ show_b () (K J);
- *   () *)
+let show_a fa a = fix_result_1.a_trf fa a
+let show_b    b = fix_result_2.b_trf b
+
+let _ =
+  (* let show_string () s = s in *)
+  let show_int    () n = string_of_int n in
+  printf "%s\n" @@ show_a show_int () (E C);
+  printf "%s\n" @@ show_a show_int () (A (I C));
+  printf "%s\n" @@ show_b () (I (A J));
+  printf "%s\n" @@ show_b () (K J);
+  ()

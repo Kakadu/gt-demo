@@ -31,48 +31,6 @@ class virtual [ 'inh, 'syn ] class_b = object
 end
 
 
-(* Test 1: first argument of class is a record *)
-(* type ('inh, 'syn) hack_b = { b_hack : unit -> ('inh, 'syn) class_b }
- * type ('inh, 'syn) hack_a = { a_hack : 'l . unit -> (unit -> 'l -> string) -> (unit, 'l, string, 'inh, 'syn) class_a }
- *
- * class ['l] show_a_stub (ob: (unit, string) hack_b) fself fl = object
- *   inherit [unit, 'l, string, unit, string] class_a
- *   method c_A () be = sprintf "A (%a)" (gcata_b @@ ob.b_hack ()) be
- *   method c_C ()    = "C"
- *   method c_E () a  = sprintf "E (%a)" fself a
- *   method c_D () l  = sprintf "D (%a)" fl l
- * end
- * class show_b_stub (oa: (unit, string) hack_a) fself = object
- *   inherit [unit, string] class_b
- *   method c_I () a  =
- *     (\* if type `a` is not used in b than fl doesn't matter
- *        if it is uses we know the type of argument
- *        if it is used with two different types than it is regularity restriction
- *     *\)
- *     let fl () _ =  assert false in
- *     sprintf "I (%a)" (gcata_a @@ oa.a_hack () fl) a
- *   method c_J ()    = "J"
- *   method c_K () b  = sprintf "K (%a)" fself b
- * end
- *
- *
- * let (a0,b0) = (new show_a_stub, new show_b_stub)
- *
- *
- * let myfix () =
- *   let rec show_a fl inh a = gcata_a (oa () fl) inh a
- *   and     oa () fl = { a_hack = (fun () -> a0 ob __ fl) }
- *   and     ob ()    = { b_hack = (fun () -> b0 oa show_b)         }
- *   and     show_b inh b = gcata_b (ob ()) inh b
- *   in
- *   (show_a, show_b)
- *
- *
- * let (show_a, show_b) = myfix () *)
-
-
-
-(* Test 2 *)
 
 class ['l] show_a_stub ob fself fl = object
   inherit [unit, 'l, string, unit, string] class_a
@@ -123,15 +81,35 @@ let myfix (a0,b0) =
   (show_a, show_b)
 
 let (fix_result_1, fix_result_2) = myfix (a0,b0)
-(* let (show_a, show_b) =
- *   let {a_trf},{b_trf} = myfix (a0,b0) in
- *   a_trf,b_trf *)
 
 let show_a fa a = fix_result_1.a_trf fa a
 let show_b    b = fix_result_2.b_trf b
 
 let _ =
-  (* let show_string () s = s in *)
+  let show_int    () n = string_of_int n in
+  printf "%s\n" @@ show_a show_int () (E C);
+  printf "%s\n" @@ show_a show_int () (A (I C));
+  printf "%s\n" @@ show_b () (I (A J));
+  printf "%s\n" @@ show_b () (K J);
+  ()
+
+
+(* Reimplementing some stuff *)
+
+
+class ['l] show_a_stub2 ob fself fl = object
+  inherit ['l] show_a_stub ob fself fl
+  method! c_A () be = sprintf "A %a" (gcata_b @@ ob ()) be
+end
+
+let (a0,b0) = ({ a_func = new show_a_stub2}, {b_func = new show_b_stub})
+
+let (fix_result_1, fix_result_2) = myfix (a0,b0)
+
+let show_a fa a = fix_result_1.a_trf fa a
+let show_b    b = fix_result_2.b_trf b
+
+let _ =
   let show_int    () n = string_of_int n in
   printf "%s\n" @@ show_a show_int () (E C);
   printf "%s\n" @@ show_a show_int () (A (I C));

@@ -30,14 +30,12 @@ class virtual [ 'inh, 'self, 'syn ] class_b = object
   method virtual c_K   : 'inh ->     b -> 'syn
 end
 
-
-
 class ['l, 'self] show_a_stub ob fself fl = object
   inherit [unit, 'l, string, unit, 'self, string] class_a
   method c_A () be = sprintf "A (%a)" (gcata_b @@ ob ()) be
   method c_C ()    = "C"
-  method c_E () a  = sprintf "E (%a)" fself a
-  method c_D () l  = sprintf "D (%a)" fl l
+  method c_E () a  = sprintf "E (%a)" (fun () -> fself) a
+  method c_D () l  = sprintf "D (%a)" (fun () -> fl) l
 end
 class ['self] show_b_stub oa fself = object
   inherit [unit, 'self, string] class_b
@@ -46,47 +44,47 @@ class ['self] show_b_stub oa fself = object
        if it is used we know the type of argument
        if it is used with two different types than it is regularity restriction
     *)
-    let fl () n = string_of_int n in
+    let fl n = string_of_int n in
     sprintf "I (%a)" (gcata_a @@ oa () fl) a
   method c_J ()    = "J"
-  method c_K () b  = sprintf "K (%a)" fself b
+  method c_K () b  = sprintf "K (%a)" (fun () -> fself) b
 end
 
-type typ_for_a = { a_func :
-                     'a 'selfa 'selfb . (unit -> (unit, 'selfb, string) class_b) ->
-                     (unit -> 'a a -> string) ->
-                     (unit -> 'a -> string) ->
-                     ('a, 'selfa) show_a_stub
-                 }
-type typ_for_b = { b_func :
-                     'a 'selfa 'selfb .
-                       (unit -> (unit -> int -> string) ->
-                                (unit, int, string, unit, 'selfa, string) class_a) ->
-                       (unit -> b -> string) ->
-                       'selfb show_b_stub
-                 }
+type typ_for_a =
+  { a_func : 'a 'selfa 'selfb .
+               (unit -> 'selfb show_b_stub) ->
+      ('a a -> string) ->
+      ('a -> string) ->
+      ('a, 'selfa) show_a_stub
+  }
+type typ_for_b =
+  { b_func :  'a 'selfa 'selfb .
+                (unit -> (int -> string) -> (int, 'selfa) show_a_stub) ->
+      (b -> string) ->
+      'selfb show_b_stub
+  }
 let (a0,b0) = ({ a_func = new show_a_stub}, {b_func = new show_b_stub})
-type a_trf  = { a_trf: 'a . (unit -> 'a -> string) -> unit -> 'a a -> string }
-type b_trf  = { b_trf:      unit -> b -> string }
+type a_trf  = { a_trf: 'a . ('a -> string) -> 'a a -> string }
+type b_trf  = { b_trf:      b -> string }
 type oa_func= { oa_func: 'a 'selfa .
                          unit ->
-                         (unit -> 'a -> string) ->
-                         (unit, 'a, string, unit, 'selfa, string) class_a }
-type ob_func= { ob_func: 'selfb . unit -> (unit, 'selfb, string) class_b }
+                         ('a -> string) ->
+                         ('a, 'selfa) show_a_stub }
+type ob_func= { ob_func: 'selfb . unit -> 'selfb show_b_stub }
 
 
 let myfix (a0,b0) =
-  let rec show_a = { a_trf = fun fl inh a -> gcata_a (oa.oa_func () fl) inh a }
+  let rec show_a = { a_trf = fun fl a -> gcata_a (oa.oa_func () fl) () a }
   and     oa     = { oa_func = fun () fl -> a0.a_func ob.ob_func (show_a.a_trf fl) fl }
   and     ob     = { ob_func = fun ()    -> b0.b_func oa.oa_func show_b.b_trf }
-  and     show_b = { b_trf = (fun inh b -> gcata_b (ob.ob_func ()) inh b) }
+  and     show_b = { b_trf = fun b -> gcata_b (ob.ob_func ()) () b }
   in
   (show_a, show_b)
 
 let (fix_result_1, fix_result_2) = myfix (a0,b0)
 
-let show_a fa a = fix_result_1.a_trf (fun () -> fa) () a
-let show_b    b = fix_result_2.b_trf                () b
+let show_a fa a = fix_result_1.a_trf fa a
+let show_b    b = fix_result_2.b_trf    b
 
 let _ =
   let show_int = string_of_int in
@@ -114,11 +112,11 @@ let show_a fa a = fix_result_1.a_trf fa a
 let show_b    b = fix_result_2.b_trf b
 
 let _ =
-  let show_int    () n = string_of_int n in
-  printf "%s\n" @@ show_a show_int () (E C);
-  printf "%s\n" @@ show_a show_int () (A (I C));
-  printf "%s\n" @@ show_b () (I (A J));
-  printf "%s\n" @@ show_b () (K J);
+  let show_int n = string_of_int n in
+  printf "%s\n" @@ show_a show_int (E C);
+  printf "%s\n" @@ show_a show_int (A (I C));
+  printf "%s\n" @@ show_b (I (A J));
+  printf "%s\n" @@ show_b (K J);
   ()
 
 (** gmap *********************************************** *)
@@ -126,10 +124,8 @@ class ['l, 'l2, 'self] gmap_a_stub ob fself fl = object
   inherit [unit, 'l, 'l2, unit, 'self, 'l2 a] class_a
   method c_A () be = A (gcata_b (ob ()) () be)
   method c_C ()    = C
-  method c_E () a  = E (fself () a)
-  method c_D () l  =
-    print_endline "gmapping D";
-    D (fl () l)
+  method c_E () a  = E (fself a)
+  method c_D () l  = D (fl l)
 end
 class ['self] gmap_b_stub oa fself = object
   inherit [unit, 'self, b] class_b
@@ -138,37 +134,37 @@ class ['self] gmap_b_stub oa fself = object
        if it is uses we know the type of argument
        if it is used with two different types than it is regularity restriction
     *)
-    let fl () _ =  assert false in
+    let fl _ =  assert false in
     I (gcata_a (oa () fl) () a)
   method c_J ()    = J
-  method c_K () b  = K (fself () b)
+  method c_K () b  = K (fself b)
 end
 
 type gmap_typ_for_a =
   { gmap_a_func :
       'a 'l2 'selfa 'selfb .
         (unit -> (unit, 'selfb, b) class_b) ->
-        (unit -> 'a a -> 'l2 a) ->
-        (unit -> 'a -> 'l2) ->
+        ('a a -> 'l2 a) ->
+        ('a -> 'l2) ->
         ('a, 'l2, 'selfa) gmap_a_stub
   }
 type gmap_typ_for_b =
   { gmap_b_func :
       'a 'a2 'selfa 'selfb .
-        (unit -> (unit -> 'a -> 'a2) ->
+        (unit -> ('a -> 'a2) ->
          (unit, int, string, unit, 'selfa, int a) class_a) ->
-      (unit -> b -> b) ->
+      (b -> b) ->
       'selfb gmap_b_stub
   }
 
 let (a0,b0) = ({ gmap_a_func = new gmap_a_stub}, {gmap_b_func = new gmap_b_stub})
 
-type gmap_a_2  = { gmap_a_trf: 'a 'b . (unit -> 'a -> 'b) -> unit -> 'a a -> 'b a }
-type gmap_b_2  = { gmap_b_trf:          unit -> b -> b }
+type gmap_a_2  = { gmap_a_trf: 'a 'b . ('a -> 'b) -> 'a a -> 'b a }
+type gmap_b_2  = { gmap_b_trf:          b -> b }
 type gmap_oa_3 = { gmap_oa_func:
                   'a 'b 'selfa .
                     unit ->
-                  (unit -> 'a -> 'b) ->
+                  ('a -> 'b) ->
                   (unit, 'a, 'b, unit, 'selfa, 'b a) class_a
               }
 type gmap_ob_3 = { gmap_ob_func: 'selfb . unit -> (unit, 'selfb, b) class_b }
@@ -179,10 +175,10 @@ let (gmap_a0,gmap_b0) =
 
 let (fix_result_1, fix_result_2) =
   let gmap_myfix (a0,b0) =
-    let rec p_a = { gmap_a_trf = fun fl inh a ->
+    let rec p_a = { gmap_a_trf = fun fl a ->
         (* Eta-expansion matters !!! *)
-        gcata_a (oa.gmap_oa_func () fl) inh a }
-    and     p_b = { gmap_b_trf = fun inh b -> gcata_b (ob.gmap_ob_func ()) inh b }
+        gcata_a (oa.gmap_oa_func () fl) () a }
+    and     p_b = { gmap_b_trf = fun b -> gcata_b (ob.gmap_ob_func ()) () b }
     and     oa  = { gmap_oa_func = fun () fl ->
                       a0.gmap_a_func ob.gmap_ob_func (p_a.gmap_a_trf fl) fl }
     and     ob  = { gmap_ob_func = fun () ->
@@ -193,15 +189,15 @@ let (fix_result_1, fix_result_2) =
   gmap_myfix (gmap_a0,gmap_b0)
 
 (* extra hacks to skip inherited attribute *)
-let gmap_a fa a = fix_result_1.gmap_a_trf  (fun () -> fa) () a
-let gmap_b    b = fix_result_2.gmap_b_trf                 () b
+let gmap_a fa a = fix_result_1.gmap_a_trf  fa a
+let gmap_b    b = fix_result_2.gmap_b_trf     b
 
 let _ =
-  let show_int    () n = string_of_int n in
+  let show_int = string_of_int in
   let t1 = D 5 in
   printf "Stage 2\n";
-  printf "%s\n" @@ show_a show_int () @@ t1;
-  printf "%s\n" @@ show_a show_int () @@ gmap_a ((+)1) t1;
+  printf "%s\n" @@ show_a show_int @@ t1;
+  printf "%s\n" @@ show_a show_int @@ gmap_a ((+)1) t1;
   ()
 
 

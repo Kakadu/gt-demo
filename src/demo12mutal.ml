@@ -18,27 +18,27 @@ let rec gcata_b tr inh = function
   | J   -> tr#c_J inh
   | K b -> tr#c_K inh b
 
-class virtual [ 'il, 'l, 'sl, 'inh, 'self, 'syn ] class_a = object
+class virtual [ 'il, 'l, 'sl, 'inh, 'self, 'syn ] a_t = object
   method virtual c_A   : 'inh -> b    -> 'syn
   method virtual c_C   : 'inh         -> 'syn
   method virtual c_E   : 'inh -> 'l a -> 'syn
   method virtual c_D   : 'inh ->   'l -> 'syn
 end
-class virtual [ 'inh, 'self, 'syn ] class_b = object
+class virtual [ 'inh, 'self, 'syn ] b_t = object
   method virtual c_I   : 'inh -> int a -> 'syn
   method virtual c_J   : 'inh          -> 'syn
   method virtual c_K   : 'inh ->     b -> 'syn
 end
 
 class ['l, 'self] show_a_stub ob fself fl = object
-  inherit [unit, 'l, string, unit, 'self, string] class_a
+  inherit [unit, 'l, string, unit, 'self, string] a_t
   method c_A () be = sprintf "A (%a)" (gcata_b @@ ob ()) be
   method c_C ()    = "C"
   method c_E () a  = sprintf "E (%a)" (fun () -> fself) a
   method c_D () l  = sprintf "D (%a)" (fun () -> fl) l
 end
 class ['self] show_b_stub oa fself = object
-  inherit [unit, 'self, string] class_b
+  inherit [unit, 'self, string] b_t
   method c_I () a  =
     (* if type `a` is not used in b than fl doesn't matter
        if it is used we know the type of argument
@@ -49,6 +49,17 @@ class ['self] show_b_stub oa fself = object
   method c_J ()    = "J"
   method c_K () b  = sprintf "K (%a)" (fun () -> fself) b
 end
+
+(* Final transformation function here *)
+type a_trf  = { a_trf: 'a . ('a -> string) -> 'a a -> string }
+type b_trf  = { b_trf:      b -> string }
+(* Type of first arguments of generated classes *)
+type oa_func= { oa_func: 'a 'selfa .
+                         unit ->
+                         ('a -> string) ->
+                         ('a, 'selfa) show_a_stub }
+type ob_func= { ob_func: 'selfb . unit -> 'selfb show_b_stub }
+
 
 type typ_for_a =
   { a_func : 'a 'selfa 'selfb .
@@ -64,24 +75,16 @@ type typ_for_b =
       'selfb show_b_stub
   }
 let (a0,b0) = ({ a_func = new show_a_stub}, {b_func = new show_b_stub})
-type a_trf  = { a_trf: 'a . ('a -> string) -> 'a a -> string }
-type b_trf  = { b_trf:      b -> string }
-type oa_func= { oa_func: 'a 'selfa .
-                         unit ->
-                         ('a -> string) ->
-                         ('a, 'selfa) show_a_stub }
-type ob_func= { ob_func: 'selfb . unit -> 'selfb show_b_stub }
-
 
 let myfix (a0,b0) =
   let rec show_a = { a_trf = fun fl a -> gcata_a (oa.oa_func () fl) () a }
+  and     show_b = { b_trf = fun b -> gcata_b (ob.ob_func ()) () b }
   and     oa     = { oa_func = fun () fl -> a0.a_func ob.ob_func (show_a.a_trf fl) fl }
   and     ob     = { ob_func = fun ()    -> b0.b_func oa.oa_func show_b.b_trf }
-  and     show_b = { b_trf = fun b -> gcata_b (ob.ob_func ()) () b }
   in
-  (show_a, show_b)
+  (show_a, show_b, oa, ob)
 
-let (fix_result_1, fix_result_2) = myfix (a0,b0)
+let (fix_result_1, fix_result_2, oa, ob) = myfix (a0,b0)
 
 let show_a fa a = fix_result_1.a_trf fa a
 let show_b    b = fix_result_2.b_trf    b
@@ -106,8 +109,11 @@ end
 
 let (a0,b0) = ({ a_func = new show_a_stub2}, {b_func = new show_b_stub})
 
-let (fix_result_1, fix_result_2) = myfix (a0,b0)
+let (fix_result_1, fix_result_2, oa, ob) = myfix (a0,b0)
 
+class ['l, 'self] show_a fself fa = object
+  inherit ['l, 'self] show_a_stub ob.ob_func fself fa
+end
 let show_a fa a = fix_result_1.a_trf fa a
 let show_b    b = fix_result_2.b_trf b
 
@@ -119,16 +125,35 @@ let _ =
   printf "%s\n" @@ show_b (K J);
   ()
 
+(* ******************  Let's reuse type a as an alias ************ *)
+type 'a ccc = 'a a
+let gcata_ccc = gcata_a
+class virtual ['ia,'a,'sa, 'inh, 'self, 'syn] ccc_t = object
+  inherit ['ia,'a,'sa, 'inh, 'self, 'syn] a_t
+end
+class ['a, 'selfc] show_c fself fa = object 
+  inherit ['a, 'selfc] show_a fself fa
+end    
+let show_c fa c = 
+  fix0 (fun fself -> gcata_ccc (new show_c fself fa) ()) c
+let _ =
+  let show_int n = string_of_int n in
+  printf "Testing 'a c:\n%!";
+  printf "%s\n" @@ show_c show_int (E C);
+  printf "%s\n" @@ show_c show_int (A (I C));
+  ()
+
+
 (** gmap *********************************************** *)
 class ['l, 'l2, 'self] gmap_a_stub ob fself fl = object
-  inherit [unit, 'l, 'l2, unit, 'self, 'l2 a] class_a
+  inherit [unit, 'l, 'l2, unit, 'self, 'l2 a] a_t
   method c_A () be = A (gcata_b (ob ()) () be)
   method c_C ()    = C
   method c_E () a  = E (fself a)
   method c_D () l  = D (fl l)
 end
 class ['self] gmap_b_stub oa fself = object
-  inherit [unit, 'self, b] class_b
+  inherit [unit, 'self, b] b_t
   method c_I () a  =
     (* if type `a` is not used in b than fl doesn't matter
        if it is uses we know the type of argument
@@ -143,7 +168,7 @@ end
 type gmap_typ_for_a =
   { gmap_a_func :
       'a 'l2 'selfa 'selfb .
-        (unit -> (unit, 'selfb, b) class_b) ->
+        (unit -> (unit, 'selfb, b) b_t) ->
         ('a a -> 'l2 a) ->
         ('a -> 'l2) ->
         ('a, 'l2, 'selfa) gmap_a_stub
@@ -152,7 +177,7 @@ type gmap_typ_for_b =
   { gmap_b_func :
       'a 'a2 'selfa 'selfb .
         (unit -> ('a -> 'a2) ->
-         (unit, int, string, unit, 'selfa, int a) class_a) ->
+         (unit, int, string, unit, 'selfa, int a) a_t) ->
       (b -> b) ->
       'selfb gmap_b_stub
   }
@@ -165,9 +190,9 @@ type gmap_oa_3 = { gmap_oa_func:
                   'a 'b 'selfa .
                     unit ->
                   ('a -> 'b) ->
-                  (unit, 'a, 'b, unit, 'selfa, 'b a) class_a
+                  (unit, 'a, 'b, unit, 'selfa, 'b a) a_t
               }
-type gmap_ob_3 = { gmap_ob_func: 'selfb . unit -> (unit, 'selfb, b) class_b }
+type gmap_ob_3 = { gmap_ob_func: 'selfb . unit -> (unit, 'selfb, b) b_t }
 
 
 let (gmap_a0,gmap_b0) =
@@ -203,14 +228,14 @@ let _ =
 
 (* ***************************** Fmt now ******************************* *)
 class ['l, 'self] fmt_a_stub ob fself fl = object
-  inherit [Format.formatter, 'l, unit, Format.formatter, 'self, unit] class_a
+  inherit [Format.formatter, 'l, unit, Format.formatter, 'self, unit] a_t
   method c_A fmt be = Format.fprintf fmt "A (%a)" (gcata_b (ob ())) be
   method c_C fmt    = Format.fprintf fmt "C"
   method c_E fmt a  = Format.fprintf fmt "E (%a)" fself a
   method c_D fmt l  = Format.fprintf fmt "D (%a)" fl l
 end
 class ['self] fmt_b_stub oa fself = object
-  inherit [Format.formatter, 'self, unit] class_b
+  inherit [Format.formatter, 'self, unit] b_t
   method c_I fmt a  =
     (* if type `a` is not used in b than fl doesn't matter
        if it is uses we know the type of argument
@@ -225,7 +250,7 @@ end
 type fmt_typ_for_a =
   { fmt_a_func :
       'a 'selfa 'selfb .
-        (unit -> (Format.formatter, 'selfb, unit) class_b) ->
+        (unit -> (Format.formatter, 'selfb, unit) b_t) ->
         (Format.formatter -> 'a a -> unit) ->
         (Format.formatter -> 'a -> unit) ->
         ('a, 'selfa) fmt_a_stub
@@ -234,7 +259,7 @@ type fmt_typ_for_b =
   { fmt_b_func :
       'selfa 'selfb .
         (unit -> (Format.formatter -> int -> unit) ->
-         (Format.formatter, int, unit, Format.formatter, 'selfa, unit) class_a) ->
+         (Format.formatter, int, unit, Format.formatter, 'selfa, unit) a_t) ->
       (Format.formatter -> b -> unit) ->
       'selfb fmt_b_stub
   }
@@ -248,10 +273,10 @@ type fmt_oa_3 =
       'a  'selfa .
         unit ->
       (Format.formatter -> 'a -> unit) ->
-      (Format.formatter, 'a, unit, Format.formatter, 'selfa, unit) class_a
+      (Format.formatter, 'a, unit, Format.formatter, 'selfa, unit) a_t
   }
 type fmt_ob_3 =
-  { fmt_ob_func: 'selfb . unit -> (Format.formatter, 'selfb, unit) class_b }
+  { fmt_ob_func: 'selfb . unit -> (Format.formatter, 'selfb, unit) b_t }
 
 
 let (fmt_a0,fmt_b0) = ({ fmt_a_func = new fmt_a_stub}, {fmt_b_func = new fmt_b_stub})

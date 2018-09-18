@@ -1,12 +1,14 @@
 (* Demo 12: mutal recursion with less objects *)
 open Utils
 open Printf
+open Demo07lists
 
 let __ = Obj.magic ()
 
 type 'l a = A of b     | C | E of 'l a | D of 'l
 and     b = I of int a | J | K of b
 and     c = string a
+and     d = c list
 
 let rec gcata_a tr inh = function
   | A a -> tr#c_A inh a
@@ -18,6 +20,7 @@ let rec gcata_b tr inh = function
   | J   -> tr#c_J inh
   | K b -> tr#c_K inh b
 let gcata_c = gcata_a
+let gcata_d = gcata_list
 
 class virtual [ 'il, 'l, 'sl, 'inh, 'self, 'syn ] a_t = object
   method virtual c_A   : 'inh -> b    -> 'syn
@@ -38,15 +41,16 @@ end
 type a_trf  = { a_trf: 'a . ('a -> string) -> 'a a -> string }
 type b_trf  = { b_trf:      b -> string }
 type c_trf  = { c_trf:      c -> string }
+type d_trf  = { d_trf:      d -> string }
 
-class ['l, 'self] show_a_stub for_a for_b for_c ~fself fl = object
+class ['l, 'self] show_a_stub for_a for_b for_c for_d ~fself fl = object
   inherit [unit, 'l, string, unit, 'self, string] a_t
   method c_A () be = sprintf "A (%s)" (for_b.b_trf be)
   method c_C ()    = "C"
   method c_E () a  = sprintf "E (%a)" (fun () -> fself) a
   method c_D () l  = sprintf "D (%a)" (fun () -> fl) l
 end
-class ['self] show_b_stub for_a for_b for_c ~fself = object
+class ['self] show_b_stub for_a for_b for_c for_d ~fself = object
   inherit [unit, 'self, string] b_t
   method c_I () a  =
     (* if type `a` is not used in b than fl doesn't matter
@@ -58,8 +62,11 @@ class ['self] show_b_stub for_a for_b for_c ~fself = object
   method c_J ()    = "J"
   method c_K () b  = sprintf "K (%a)" (fun () -> fself) b
 end
-class ['self] show_c_stub for_a for_b for_c ~fself = object
-  inherit [string, 'self] show_a_stub for_a for_b for_c ~fself:(for_a.a_trf id) id
+class ['self] show_c_stub for_a for_b for_c for_d ~fself = object
+  inherit [string, 'self] show_a_stub for_a for_b for_c for_d ~fself:(for_a.a_trf id) id
+end
+class ['self] show_d_stub for_a for_b for_c for_d ~fself = object
+  inherit [c] show_list (fun () -> fself) (fun () -> for_c.c_trf)
 end
 (* Type of first arguments of generated classes *)
 (* type oa_func= { oa_func: 'a 'selfa .
@@ -71,39 +78,52 @@ end
 
 type typ_for_a =
   { a_func : 'a 'selfa .
-               a_trf -> b_trf -> c_trf -> fself:('a a -> string) ->
+               a_trf -> b_trf -> c_trf -> d_trf -> fself:('a a -> string) ->
       ('a -> string) ->
       ('a, 'selfa) show_a_stub
   }
 type typ_for_b =
   { b_func : 'self .
-                a_trf -> b_trf -> c_trf -> fself:(b -> string) ->
+                a_trf -> b_trf -> c_trf -> d_trf -> fself:(b -> string) ->
       'self show_b_stub
   }
 type typ_for_c =
   { c_func :  'self .
-                a_trf -> b_trf -> c_trf -> fself:(c -> string) ->
+                a_trf -> b_trf -> c_trf -> d_trf -> fself:(c -> string) ->
       'self show_c_stub
   }
+type typ_for_d =
+  { d_func :  'self .
+                a_trf -> b_trf -> c_trf -> d_trf -> fself:(d -> string) ->
+      'self show_d_stub
+  }
 
-let (a0,b0,c0) =
-  ({ a_func = new show_a_stub}, {b_func = new show_b_stub}, {c_func = new show_c_stub})
+let (a0,b0,c0,d0) =
+  ( {a_func = new show_a_stub}
+  , {b_func = new show_b_stub}
+  , {c_func = new show_c_stub}
+  , {d_func = new show_d_stub}
+  )
 
-let myfix (a0,b0,c0) =
+let myfix (a0,b0,c0,d0) =
   let rec show_a = { a_trf = fun fl a ->
-      gcata_a (a0.a_func show_a show_b show_c (show_a.a_trf fl) fl) () a
+      gcata_a (a0.a_func show_a show_b show_c show_d (show_a.a_trf fl) fl) () a
     }
   and     show_b = { b_trf = fun    b ->
-      gcata_b (b0.b_func show_a show_b show_c show_b.b_trf  ) () b }
-  and     show_c = { c_trf = fun    s -> gcata_c (c0.c_func show_a show_b show_c show_c.c_trf   ) () s }
+      gcata_b (b0.b_func show_a show_b show_c show_d show_b.b_trf  ) () b }
+  and     show_c = { c_trf = fun    s ->
+      gcata_c (c0.c_func show_a show_b show_c show_d show_c.c_trf  ) () s }
+  and     show_d = { d_trf = fun    s ->
+      gcata_d (d0.d_func show_a show_b show_c show_d show_d.d_trf  ) () s }
   in
-  (show_a, show_b, show_c)
+  (show_a, show_b, show_c, show_d)
 
-let (fix_result_1, fix_result_2, fix_result_3) = myfix (a0,b0,c0)
+let (fix_result_1, fix_result_2, fix_result_3, fr4 ) = myfix (a0,b0,c0,d0)
 
 let show_a fa a = fix_result_1.a_trf fa a
 let show_b    b = fix_result_2.b_trf    b
 let show_c    s = fix_result_3.c_trf    s
+let show_d    s = fr4.d_trf    s
 
 let _ =
   let show_int = string_of_int in
@@ -119,38 +139,43 @@ let _ =
 (* Reimplementing some stuff *)
 
 
-class ['l, 'self] show_a_stub2 for_a for_b for_c ~fself fl = object
-  inherit ['l, 'self] show_a_stub for_a for_b for_c ~fself fl
-  method! c_A () be = sprintf "A %a" (fun () -> for_b.b_trf) be
+class ['l, 'self] show_a_stub2 for_a for_b for_c for_d ~fself fl = object
+  inherit ['l, 'self] show_a_stub for_a for_b for_c for_d ~fself fl
+  method! c_A () be = sprintf "A {%a}" (fun () -> for_b.b_trf) be
   method! c_D ()  x = sprintf "D {%a}" (fun () -> fl) x
 end
 
-let (a0,b0,c0) =
-  ({ a_func = new show_a_stub2}, {b_func = new show_b_stub}, {c_func = new show_c_stub})
+let (a0,b0,c0,d0) =
+  ( {a_func = new show_a_stub2}
+  , {b_func = new show_b_stub}
+  , {c_func = new show_c_stub}
+  , {d_func = new show_d_stub}
+  )
 
-let (fix_result_1, fix_result_2, fix_result_3) = myfix (a0,b0,c0)
+let (fix_result_1, fix_result_2, fix_result_3, fr4) = myfix (a0,b0,c0,d0)
 
 class ['l, 'self] show_a fself fa = object
-  inherit ['l, 'self] show_a_stub2 fix_result_1 fix_result_2 fix_result_3 fself fa
+  inherit ['l, 'self] show_a_stub2 fix_result_1 fix_result_2 fix_result_3 fr4 fself fa
 end
 class ['self] show_b fself = object
-  inherit ['self] show_b_stub fix_result_1 fix_result_2 fix_result_3 ~fself
+  inherit ['self] show_b_stub fix_result_1 fix_result_2 fix_result_3 fr4 ~fself
 end
 class ['self] show_c fself = object
-  inherit ['self] show_c_stub fix_result_1 fix_result_2 fix_result_3 ~fself
+  inherit ['self] show_c_stub fix_result_1 fix_result_2 fix_result_3 fr4 ~fself
 end
 let show_a fa a = fix_result_1.a_trf fa a
 let show_b    s = fix_result_2.b_trf    s
 let show_c    s = fix_result_3.c_trf    s
 
 let _ =
-  printf "Stage 2:\n";
+  printf "Stage 2 (a reimplemented):\n";
   let show_int n = string_of_int n in
   printf "%s\n" @@ show_a show_int (E C);
   printf "%s\n" @@ show_a show_int (A (I C));
   printf "%s\n" @@ show_b (I (A J));
   printf "%s\n" @@ show_b (K J);
   printf "c: %s\n" @@ show_c       (D "inside");
+  printf "d: %s\n" @@ show_d       (Cons (D "inside", Nil));
   ()
 
 (** gmap *********************************************** *)

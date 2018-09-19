@@ -66,7 +66,10 @@ class ['self] show_c_stub for_a for_b for_c for_d ~fself = object
   inherit [string, 'self] show_a_stub for_a for_b for_c for_d ~fself:(for_a.a_trf id) id
 end
 class ['self] show_d_stub for_a for_b for_c for_d ~fself = object
-  inherit [c] show_list (fun () -> fself) (fun () -> for_c.c_trf)
+  inherit [c] show_list (fun () -> fself)
+      (fun () x -> print_endline "HERR";
+        for_a.a_trf (sprintf "%S") x
+      )
 end
 (* Type of first arguments of generated classes *)
 (* type oa_func= { oa_func: 'a 'selfa .
@@ -145,10 +148,14 @@ class ['l, 'self] show_a_stub2 for_a for_b for_c for_d ~fself fl = object
   method! c_D ()  x = sprintf "D {%a}" (fun () -> fl) x
 end
 
+class ['self] show_c_stub2 for_a for_b for_c for_d ~fself = object
+  inherit [string, 'self] show_a_stub2 for_a for_b for_c for_d ~fself:(for_a.a_trf id) id
+end
+
 let (a0,b0,c0,d0) =
   ( {a_func = new show_a_stub2}
   , {b_func = new show_b_stub}
-  , {c_func = new show_c_stub}
+  , {c_func = new show_c_stub2}
   , {d_func = new show_d_stub}
   )
 
@@ -163,9 +170,13 @@ end
 class ['self] show_c fself = object
   inherit ['self] show_c_stub fix_result_1 fix_result_2 fix_result_3 fr4 ~fself
 end
+class ['self] show_d fself = object
+  inherit ['self] show_d_stub fix_result_1 fix_result_2 fix_result_3 fr4 ~fself
+end
 let show_a fa a = fix_result_1.a_trf fa a
 let show_b    s = fix_result_2.b_trf    s
 let show_c    s = fix_result_3.c_trf    s
+let show_d    s = fr4.d_trf    s
 
 let _ =
   printf "Stage 2 (a reimplemented):\n";
@@ -175,7 +186,7 @@ let _ =
   printf "%s\n" @@ show_b (I (A J));
   printf "%s\n" @@ show_b (K J);
   printf "c: %s\n" @@ show_c       (D "inside");
-  printf "d: %s\n" @@ show_d       (Cons (D "inside", Nil));
+  printf "d: %s\n" @@ show_d       (Cons (A J, Nil));
   ()
 
 (** gmap *********************************************** *)

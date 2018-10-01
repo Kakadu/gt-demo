@@ -3,3 +3,5 @@ B _build/regression_ppx
 SRC .
 SRC ../src
 FLG -rectypes -short-paths
+
+PKG higher

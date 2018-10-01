@@ -12,6 +12,7 @@ all:
 		src/demo10ulc.native  \
 		src/demo12mutal.native  \
 		src/demo13mutal.native  \
+		src/demo14mutal.native  \
 
 
 pdf:

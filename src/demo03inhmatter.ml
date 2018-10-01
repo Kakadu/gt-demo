@@ -93,5 +93,5 @@ let wtfo_llist typ_a (fa: 'a -> string) (t: 'a llist) =
   ) t
 
 let () =
-  printf "%s\n%!" @@ wtfo_llist "int" (sprintf "%d") @@  
+  printf "%s\n%!" @@ wtfo_llist "int" (sprintf "%d") @@
     Value (Cons (Value 1, Value (Cons (Var 11, Value (Cons (Value 2, Var 12))))))

@@ -1,4 +1,4 @@
-.PHONY: all clean celan pdf
+.PHONY: all clean celan pdf hk
 
 .DEFAULT_GOAL=all
 
@@ -12,8 +12,11 @@ all:
 		src/demo10ulc.native  \
 		src/demo12mutal.native  \
 		src/demo13mutal.native  \
-		src/demo14mutal.native  \
+ #		src/demo14mutal.native  \
 
+hk:
+	ocamlbuild -use-ocamlfind -classic-display \
+		src/hk1.native
 
 pdf:
 	pdflatex -shell-escape main.tex

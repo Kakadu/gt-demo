@@ -1,4 +1,4 @@
-true: bin_annot, rectypes, short_paths
+true: bin_annot, short_paths
 <bench>: -traverse
 
 <src/demo14*.*>: package(higher)

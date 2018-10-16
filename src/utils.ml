@@ -13,5 +13,6 @@ let fix f inh t =
   knot := recurse;
   recurse inh t
 
-
+let show_int = string_of_int
+let show_string = Printf.sprintf "%S"
 let unused _ _ = failwith "*** Using the unused ***"

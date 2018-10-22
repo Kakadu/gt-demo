@@ -2,3 +2,4 @@ true: bin_annot, short_paths
 <bench>: -traverse
 
 <src/demo14*.*>: package(higher)
+<src/demo07*.*> or <src/demo03*.*> or <src/demo08*.*> or <src/demo13*.*> or <src/hk5*.*>: rectypes

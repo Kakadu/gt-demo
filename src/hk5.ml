@@ -84,7 +84,9 @@ let myfix (a0,b0) =
 
 let (fix_result_1, fix_result_2) = myfix (a0,b0)
 
-(* TODO: too monomorphic *)
+(* TODO: too monomorphic
+  (int -> string) -> int a -> string
+*)
 let show_a fa a = fix_result_1.a_trf fa a
 let show_b    b = fix_result_2.b_trf    b
 

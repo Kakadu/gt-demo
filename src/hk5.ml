@@ -29,8 +29,8 @@ class virtual [ 'inh, 'self, 'syn ] b_t = object
 end
 
 (* Final transformation function here *)
-type ('a, 'sa, 's) a_trf  = { a_trf: ('a -> 'sa) -> 'a a -> 's }
-type           's  b_trf  = { b_trf: b -> 's }
+type (    'sa, 's) a_trf  = { a_trf: 'a . ('a -> 'sa) -> 'a a -> 's }
+type           's  b_trf  = { b_trf:      b -> 's }
 
 class ['l, 'self] show_a_stub for_a for_b ~fself fl = object
   inherit [unit, 'l, string, unit, 'self, string] a_t
@@ -54,15 +54,15 @@ end
 
 type ('aa, 'saa, 'sa, 'sb, 'a, 'selfa) typ_for_a =
   { a_func :
-               ('aa, 'saa, 'sa) a_trf ->
+               ('saa, 'sa) a_trf ->
                'sb b_trf ->
                fself:('a a -> 'sa) ->
       ('a -> 'sa) ->
       (unit, 'aa, 'saa, unit, 'selfa, 'sa) a_t
   }
-type ('aa, 'saa, 'sa, 'sb, 'a, 'self) typ_for_b =
+type ('saa (* for int *), 'sa (* for int a *), 'sb, 'self) typ_for_b =
   { b_func :
-               ('aa, 'saa, 'sa) a_trf ->
+               ('saa, 'sa) a_trf ->
                'sb b_trf ->
                fself:(b -> 'sb) ->
       (unit, 'self, 'sb) b_t

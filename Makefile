@@ -16,7 +16,7 @@ all:
 
 hk:
 	ocamlbuild -use-ocamlfind -classic-display \
-		src/hk5.native
+		src/hk6.native
 
 pdf:
 	pdflatex -shell-escape main.tex

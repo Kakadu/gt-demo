@@ -26,10 +26,6 @@ let rec gcata_tree tr inh t =
 let tree = { gcata = gcata_tree; plugins = object end }
 let prettify_tree fmt fa subj =
   transform1(tree) (new prettify_tree fa) fmt subj
-(* fix (fun self fmt tree ->
- *     gcata_tree (new prettify_tree self fa) fmt tree
- *   ) fmt t *)
-
 
 let () =
   let fmt = Format.std_formatter in
@@ -46,24 +42,33 @@ let () =
 
 open Demo07lists (* logic values are here *)
 
-class ['a] wtfo_logic self typ_a fa = object
+class ['a] wtfo_logic typ_a fa fself = object
   inherit ['a, unit, string, unit, string] class_logic
   method c_Var   fmt n = sprintf "_.%d is `%s`" n typ_a
   method c_Value fmt x = fa x
 end
 
-let wtfo_logic typ_a fa t =
-  (* let typ_self = sprintf "%s logic" typ_a in *)
-  fix0 (fun self ->
-    gcata_logic (new wtfo_logic self typ_a fa)) () t
+let wtfo_logic typ_a fa s = Utils.transform(logic) (new wtfo_logic typ_a fa) s
+
+class ['a] fmt_logic typ_a fa fself = object
+  inherit ['a, 'inh, unit, 'inh, unit] class_logic
+  constraint 'inh = Format.formatter
+  method c_Var   fmt n = Format.fprintf fmt "_.%d is `%s`" n typ_a
+  method c_Value fmt x = fa fmt x
+end
+
+let fmt_logic typ_a fa fmt s =
+  Utils.transform1(logic) (new fmt_logic typ_a fa) fmt s
 
 let () =
   printf "show-with-type: %s\n"  (wtfo_logic "int" id (Var 1));
   printf "show-with-type: %s\n"  (wtfo_logic "int" (sprintf "%f") (Value 3.14));
+  Format.printf "fmt-with-type: %a\n" (fmt_logic "int" fmt_float) (Var 1);
+  Format.printf "fmt-with-type: %a\n" (fmt_logic "int" fmt_float) (Value 3.14);
   ()
 
 (* ********************************** Now for logic lists ******************** *)
-class ['a, 'b] wtfo_alist self typ_a fa typ_b fb =
+class ['a, 'b] wtfo_alist typ_a fa typ_b fb fself =
   object
     inherit ['a, unit, string, 'b, unit, string, unit, string] class_alist
     method c_Nil  ()     = "Nil"
@@ -71,30 +76,66 @@ class ['a, 'b] wtfo_alist self typ_a fa typ_b fb =
   end
 
 let wtfo_alist typ_a fa typ_b fb t =
-  fix0 (fun self ->
-    gcata_alist (new wtfo_alist self typ_a fa typ_b fb) ()
-  ) t
+  transform(alist) (new wtfo_alist typ_a fa typ_b fb) t
 
 (*  Now for llist *)
-class ['a] wtfo_llist (fself: 'a llist -> string)
-    (typ_a:string) (fa: 'a -> string)
+class ['a] wtfo_llist (typ_a:string) (fa:  'a -> string)
+     (fself: 'a llist -> string)
   = object
   inherit ['a, unit, string, unit, string] class_llist
   inherit [('a logic, 'b logic) alist as 'b] wtfo_logic
-      (fun _ -> "3")
       (sprintf "(%s logic, 'b logic) alist as 'b" typ_a)
       (
          wtfo_alist
-           (sprintf "%s logic" typ_a) (wtfo_logic typ_a fa)
-           (sprintf "(%s logic, %s llist) alist logic" typ_a typ_a) fself
+           (sprintf "%s logic" typ_a)
+           (wtfo_logic typ_a fa)
+           (sprintf "(%s logic, %s llist) alist logic" typ_a typ_a)
+           fself
       )
+      "3"
 end
 
 let wtfo_llist typ_a (fa: 'a -> string) (t: 'a llist) =
-  fix0 (fun self ->
-    gcata_logic (new wtfo_llist self typ_a fa ) ()
-  ) t
+  transform(llist) (new wtfo_llist typ_a fa) t
 
 let () =
   printf "%s\n%!" @@ wtfo_llist "int" (sprintf "%d") @@
     Value (Cons (Value 1, Value (Cons (Var 11, Value (Cons (Value 2, Var 12))))))
+
+
+(* ****************** Fromatting for logic lists ******************** *)
+class ['a, 'b] fmt_alist typ_a fa typ_b fb fself = object
+  inherit ['a, 'inh, unit, 'b, 'inh, unit, 'inh, unit] class_alist
+  constraint 'inh = Format.formatter
+  method c_Nil  fmt     = Format.fprintf fmt "Nil"
+  method c_Cons fmt a b = Format.fprintf fmt "Cons (%a, %a)" fa a fb b
+end
+
+let fmt_alist typ_a fa typ_b fb fmt s =
+  transform1(alist) (new fmt_alist typ_a fa typ_b fb) fmt s
+
+(*  Now for llist *)
+class ['a] fmt_llist typ_a fa (fself: 'inh -> 'a llist -> unit)
+  = object
+  inherit ['a, 'inh, unit, 'inh, unit] class_llist
+  constraint 'inh = Format.formatter
+  inherit [('a logic, 'b logic) alist as 'b] fmt_logic
+      (sprintf "(%s logic, 'b logic) alist as 'b" typ_a)
+      (
+         fmt_alist
+           (sprintf "%s logic" typ_a)
+           (fmt_logic typ_a fa)
+           (sprintf "(%s logic, %s llist) alist logic" typ_a typ_a)
+           fself
+      )
+      "3"
+end
+
+let fmt_llist typ_a (fa: 'inh -> 'a -> unit) fmt (t: 'a llist) =
+  transform1(llist) (new fmt_llist typ_a fa) fmt t
+
+let () =
+  Format.printf "Formated output:\n%!";
+  fmt_llist "int" fmt_int Format.std_formatter @@
+  Value (Cons (Value 1, Value (Cons (Var 11, Value (Cons (Value 2, Var 12))))));
+  Format.printf "\n%!"

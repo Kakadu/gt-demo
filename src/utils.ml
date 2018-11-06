@@ -15,6 +15,10 @@ let fix f inh t =
 
 let show_int = string_of_int
 let show_string = Printf.sprintf "%S"
+let fmt_string fmt = Format.fprintf fmt "%S"
+let fmt_int   fmt = Format.fprintf fmt "%d"
+let fmt_float fmt = Format.fprintf fmt "%f"
+
 let unused _ _ = failwith "*** Using the unused ***"
 
 type ('a, 'b) ttt = {gcata : 'a; plugins : 'b}

@@ -66,10 +66,11 @@ class ['self] show_c_stub for_a for_b for_c for_d ~fself = object
   inherit [string, 'self] show_a_stub for_a for_b for_c for_d ~fself:(for_a.a_trf id) id
 end
 class ['self] show_d_stub for_a for_b for_c for_d ~fself = object
-  inherit [c] show_list (fun () -> fself)
-      (fun () x -> print_endline "HERR";
-        for_a.a_trf (sprintf "%S") x
+  inherit [c] show_list
+      (fun x -> print_endline "HERR";
+        for_a.a_trf show_string x
       )
+      fself
 end
 (* Type of first arguments of generated classes *)
 (* type oa_func= { oa_func: 'a 'selfa .

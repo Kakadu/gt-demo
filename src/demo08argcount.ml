@@ -12,22 +12,25 @@ class virtual ['a, 'ia, 'sa, 'b, 'ib, 'sb, 'inh, 'syn] class_tpairint =
     inherit [('a * 'b), ('ia * 'ib), ('sa * 'sb), 'inh, 'syn] class_toption
   end
 
-class ['a, 'b] show_tpairint self fa fb =
+class ['a, 'b] show_tpairint  fa fb fself =
   object
     inherit ['a, unit, string, 'b, unit, string, unit, string] class_tpairint
-    inherit [('a * 'b)] show_toption self
+    inherit [('a * 'b)] show_toption
         (fun () (x,y) -> sprintf "(%a,%a)" fa x fb y)
+        fself
   end
 
-class ['a, 'a1, 'b, 'b1] map_tpairint self fa fb =
+class ['a, 'a1, 'b, 'b1] map_tpairint  fa fb fself =
   object
     inherit ['a, unit, 'a1, 'b, unit, 'b1, unit, ('a1, 'b1) tpairint] class_tpairint
-    inherit [('a * 'b), ('a1 * 'b1)] map_toption self
+    inherit [('a * 'b), ('a1 * 'b1)] map_toption
         (fun () (x, y) -> (fa () x, fb () y))
+        fself
   end
 
 let gcata_t : ('a, 'ia, 'sa, 'b, 'ib, 'sb, 'inh, 'syn) #class_tpairint -> 'inh -> ('a, 'b) tpairint -> 'syn =
   fun tr inh t -> gcata_toption tr inh t
+let t = { gcata = gcata_t; plugins = object end }
 
 let gcata_tpairint = gcata_t
 

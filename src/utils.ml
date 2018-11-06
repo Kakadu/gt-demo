@@ -16,3 +16,14 @@ let fix f inh t =
 let show_int = string_of_int
 let show_string = Printf.sprintf "%S"
 let unused _ _ = failwith "*** Using the unused ***"
+
+type ('a, 'b) ttt = {gcata : 'a; plugins : 'b}
+let transform1 bundle make_obj inh subj =
+  let rec obj = lazy (make_obj fself)
+  and fself inh x = bundle.gcata (Lazy.force obj) inh x in
+  fself inh subj
+
+let transform bundle make_obj subj =
+  let rec obj = lazy (make_obj fself)
+  and fself x = bundle.gcata (Lazy.force obj) () x in
+  fself subj

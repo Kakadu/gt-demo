@@ -11,11 +11,11 @@ class virtual ['a, 'ia, 'sa, 'inh, 'syn] class_tree =
     method virtual c_Node : 'inh -> 'a tree -> 'a -> 'a tree -> 'syn
   end
 
-class ['a] prettify_tree self fa = object
+class ['a] prettify_tree fa fself = object
   inherit ['a, Format.formatter, unit, Format.formatter, unit] class_tree
   method c_Leaf fmt x = Format.fprintf fmt "Leaf %a" fa x
   method c_Node fmt l x r =
-    Format.fprintf fmt "@[Node@ (%a,@ %a,@ %a)@]" self l fa x self r
+    Format.fprintf fmt "@[Node@ (%a,@ %a,@ %a)@]" fself l fa x fself r
 end
 
 let rec gcata_tree tr inh t =
@@ -23,9 +23,12 @@ let rec gcata_tree tr inh t =
   | Node (l,x,r) -> tr#c_Node inh l x r
   | Leaf x       -> tr#c_Leaf inh x
 
-let prettify_tree fmt fa t = fix (fun self fmt tree ->
-    gcata_tree (new prettify_tree self fa) fmt tree
-  ) fmt t
+let tree = { gcata = gcata_tree; plugins = object end }
+let prettify_tree fmt fa subj =
+  transform1(tree) (new prettify_tree fa) fmt subj
+(* fix (fun self fmt tree ->
+ *     gcata_tree (new prettify_tree self fa) fmt tree
+ *   ) fmt t *)
 
 
 let () =

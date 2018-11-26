@@ -29,7 +29,7 @@ let rec gcata_toption tr inh t =
   | Some a -> tr#c_Some inh a
   | None   -> tr#c_None inh
 
-let toption = { gcata = gcata_toption; plugins = object end }
+let toption = { gcata = gcata_toption }
 
 let show_toption fa s = transform(toption) (new show_toption fa) s
 let gmap_toption fa s = transform(toption) (new gmap_toption fa) s

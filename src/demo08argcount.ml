@@ -29,7 +29,7 @@ class ['a, 'a1, 'b, 'b1] gmap_tpairint  fa fb fself =
   end
 
 let gcata_tpairint = gcata_toption
-let t = { gcata = gcata_tpairint; plugins = object end }
+let t = { gcata = gcata_tpairint }
 
 
 let show_tpairint fa fb s = transform(t) (new show_tpairint fa fb) s
@@ -64,7 +64,7 @@ class ['a, 'a1, 'b, 'b1] gmap_maybe_list_pairs fa fb fself = object
 end
 
 let gcata_maybe_list_pairs = gcata_toption
-let maybe_list_pairs = { gcata = gcata_maybe_list_pairs; plugins = object end }
+let maybe_list_pairs = { gcata = gcata_maybe_list_pairs }
 
 let show_maybe_list_pairs fa fb s = transform(maybe_list_pairs)
     (new show_maybe_list_pairs fa fb) s

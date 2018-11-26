@@ -28,7 +28,7 @@ let rec gcata_t tr inh t =
   | A a -> tr#c_A inh a
   | B b -> tr#c_B inh b
 
-let t = { gcata = gcata_t; plugins = object end }
+let t = { gcata = gcata_t }
 
 let show_t fa fb s = transform(t) (new show_t fa fb) s
 let gmap_t fa fb s = transform(t) (new gmap_t fa fb) s
@@ -59,7 +59,7 @@ class ['a, 'a1] gmap_tint fa fself = object
   end
 
 let gcata_tint : ('a, 'ia, 'sa, 'inh, 'syn) #class_tint -> 'inh -> 'a tint -> 'syn = fun tr inh t -> gcata_t tr inh t
-let tint = { gcata = gcata_tint; plugins = object end }
+let tint = { gcata = gcata_tint }
 
 let show_tint fa s = transform(t) (new show_tint fa) s
 (* fix0 (fun self t -> gcata_tint (new show_tint self fa) () t) t *)
@@ -92,7 +92,7 @@ end
 let gcata_tstringint : ('inh, 'syn) #class_tstringint -> 'inh -> tstringint -> 'syn =
   fun tr inh t -> gcata_tint tr inh t
 
-let tstringint = { gcata = gcata_tstringint; plugins = object end }
+let tstringint = { gcata = gcata_tstringint }
 let show_tstringint s = transform(tstringint) (new show_tstringint) s
 (* fix0 (fun self t ->
  *     gcata_tstringint (new show_tstringint self) () t

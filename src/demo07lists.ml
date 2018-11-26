@@ -26,7 +26,7 @@ let rec gcata_alist tr inh t = match t with
   | Nil         -> tr#c_Nil inh
   | Cons (a, b) -> tr#c_Cons inh a b
 
-let alist = { gcata = gcata_alist; plugins = object end }
+let alist = { gcata = gcata_alist }
 
 let show_alist fa fb t = transform(alist) (new show_alist fa fb) t
 
@@ -55,7 +55,7 @@ end
 
 let rec gcata_list tr inh t = gcata_alist tr inh t
 
-let list = { gcata = alist.gcata; plugins = object end }
+let list = { gcata = alist.gcata }
 
 (* Version with regular fix:
 
@@ -95,7 +95,7 @@ let gcata_logic tr inh t =
   | Var   n -> tr#c_Var   inh n
   | Value n -> tr#c_Value inh n
 
-let logic = { gcata = gcata_logic; plugins = object end }
+let logic = { gcata = gcata_logic }
 
 let show_logic fa  t = transform(logic) (new show_logic fa) t
 let gmap_logic fa  t = transform(logic) (new gmap_logic fa) t
@@ -132,7 +132,7 @@ class ['a, 'b] gmap_llist fa fself  = object
 end
 
 let gcata_llist tr inh t = gcata_logic tr inh t
-let llist = { gcata = gcata_llist; plugins = object end }
+let llist = { gcata = gcata_llist }
 
 let show_llist fa  t = transform(llist) (new show_llist fa) t
 let gmap_llist fa  t = transform(llist) (new gmap_llist fa) t

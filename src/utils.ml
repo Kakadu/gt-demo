@@ -21,7 +21,7 @@ let fmt_float fmt = Format.fprintf fmt "%f"
 
 let unused _ _ = failwith "*** Using the unused ***"
 
-type ('a, 'b) ttt = {gcata : 'a; plugins : 'b}
+type ('a, 'b) ttt = {gcata : 'a}
 let transform1 bundle make_obj inh subj =
   let rec obj = lazy (make_obj fself)
   and fself inh x = bundle.gcata (Lazy.force obj) inh x in

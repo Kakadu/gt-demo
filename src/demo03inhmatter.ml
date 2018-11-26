@@ -23,7 +23,7 @@ let rec gcata_tree tr inh t =
   | Node (l,x,r) -> tr#c_Node inh l x r
   | Leaf x       -> tr#c_Leaf inh x
 
-let tree = { gcata = gcata_tree; plugins = object end }
+let tree = { gcata = gcata_tree }
 let prettify_tree fmt fa subj =
   transform1(tree) (new prettify_tree fa) fmt subj
 

@@ -11,7 +11,7 @@ module P = struct
     method c_P () n = Printf.sprintf "P %s" (fa n)
   end
 
-  let t = { Utils.gcata = gcata_t; plugins = object end }
+  let t = { Utils.gcata = gcata_t }
   let show_t fa s = Utils.transform(t) (new show_t fa) s
 end
 
@@ -53,7 +53,7 @@ module Experiment2 = struct
      we onliged to put type definition before gcata
   *)
   let gcata_t tr inh = function Foo x -> tr#c_Foo inh x
-  let t = { Utils.gcata = gcata_t; plugins = object end }
+  let t = { Utils.gcata = gcata_t }
   let show_t s = Utils.transform(t) (new show_t) s
 
   let () = Printf.printf "%s\n%!" @@ show_t (Foo (P 25))

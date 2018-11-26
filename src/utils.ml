@@ -31,3 +31,5 @@ let transform bundle make_obj subj =
   let rec obj = lazy (make_obj fself)
   and fself x = bundle.gcata (Lazy.force obj) () x in
   fself subj
+
+let transform0 = transform

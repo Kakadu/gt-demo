@@ -6,16 +6,17 @@ module PV : sig
 
   class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'inh, 'self, 'syn] class_pv :
   object
-    method virtual c_A : 'inh -> 'a -> 'syn
-    method virtual c_B : 'inh -> 'b -> 'syn
+    method virtual c_A : 'inh -> ('a,'b) pv -> 'a -> 'syn
+    method virtual c_B : 'inh -> ('a,'b) pv -> 'b -> 'syn
   end
   class ['a, 'b] show_pv_t :
     ('a -> string) ->
     ('b -> string) ->
     ( ('a,'b) pv -> string) ->
     object
-      method c_A : unit -> 'a -> string
-      method c_B : unit -> 'b -> string
+      inherit [ unit, 'a, string, unit, 'b, string, unit, 'self, string] class_pv
+      method c_A : unit -> ('a,'b) pv -> 'a -> string
+      method c_B : unit -> ('a,'b) pv -> 'b -> string
     end
   class ['a, 'a1, 'b, 'b1, 'self] gmap_pv_t :
     ('a -> 'a1) ->
@@ -23,8 +24,11 @@ module PV : sig
     (('a,'b) pv -> 'self) ->
     object
       constraint 'self = [> ('a1, 'b1) pv ]
-      method c_A : unit -> 'a -> 'self
-      method c_B : unit -> 'b -> 'self
+      inherit [ unit, 'a, 'a1
+              , unit, 'b, 'b1
+              , unit, 'self, [> ('a1,'b1) pv ] as 'self] class_pv
+      method c_A : unit -> ('a,'b) pv -> 'a -> 'self
+      method c_B : unit -> ('a,'b) pv -> 'b -> 'self
     end
 
   val gcata_pv :
@@ -42,40 +46,37 @@ end = struct
 
   class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'inh, 'self, 'syn] class_pv =
   object
-    method virtual c_A : 'inh -> 'a -> 'syn
-    method virtual c_B : 'inh -> 'b -> 'syn
+    method virtual c_A : 'inh -> ('a,'b) pv -> 'a -> 'syn
+    method virtual c_B : 'inh -> ('a,'b) pv -> 'b -> 'syn
   end
 
-  let gcata_pv tr inh (p : (_,_) pv) =
-    match p with
-    | `A a -> tr#c_A inh a
-    | `B b -> tr#c_B inh b
+  let gcata_pv tr inh (s : (_,_) pv) =
+    match s with
+    | `A a -> tr#c_A inh s a
+    | `B b -> tr#c_B inh s b
 
-  class ['a, 'b] show_pv_t fa fb fself =
-  object
-    inherit [unit, 'a, string, unit, 'b, string, unit, _, string] class_pv
-    method c_A () a = sprintf "`A (%s)" (fa a)
-    method c_B () b = sprintf "`B (%s)" (fb b)
+  class ['a, 'b] show_pv_t fa fb fself = object
+    inherit [unit, 'a, string, unit, 'b, string, unit, 'self, string] class_pv
+    method c_A () _ a = sprintf "`A (%s)" (fa a)
+    method c_B () _ b = sprintf "`B (%s)" (fb b)
   end
 
-(* I added an self argument for the 'self variable in the open type
- * We need this in gmap class and not in a show implementation
-*)
-class ['a, 'a1, 'b, 'b1, 'self ] gmap_pv_t (fa : 'a -> 'a1) (fb : 'b -> 'b1) fself =
+  (* I added an self argument for the 'self variable in the open type
+   * We need this in gmap class and not in a show implementation
+  *)
+  class ['a, 'a1, 'b, 'b1, 'self ] gmap_pv_t (fa : 'a -> 'a1) (fb : 'b -> 'b1) fself =
   object
     inherit [ unit, 'a, 'a1
             , unit, 'b, 'b1
             , unit, 'self, [> ('a1,'b1) pv ] as 'self] class_pv
-    method c_A () a = match `A (fa a) with #pv as x -> x
-    method c_B () b = `B (fb b)
+    method c_A () _ a = match `A (fa a) with #pv as x -> x
+    method c_B () _ b = `B (fb b)
   end
 
-let pv = { gcata = gcata_pv; }
+  let pv = { gcata = gcata_pv; }
 
-let show_pv fa fb t = transform(pv) (new show_pv_t fa fb) t
-
-let gmap_pv fa fb t = transform(pv) (new gmap_pv_t fa fb) t
-
+  let show_pv fa fb t = transform(pv) (new show_pv_t fa fb) t
+  let gmap_pv fa fb t = transform(pv) (new gmap_pv_t fa fb) t
 end
 
 let _ =
@@ -94,20 +95,20 @@ module PVExt : sig
   class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'inh, 'self, 'syn] class_pv_ext :
     object
       inherit ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'inh, 'self, 'syn] class_pv
-      method virtual c_C : 'inh -> 'a -> 'syn
+      method virtual c_C : 'inh -> ('a, 'b) pv_ext -> 'a -> 'syn
   end
   class ['a, 'b] show_pv_ext : ('a -> string) -> ('b -> string) ->
     (('a,'b) pv_ext -> string) ->
     object
       inherit ['a,'b] show_pv_t
-      method c_C : unit -> 'a -> string
+      method c_C : unit -> ('a, 'b) pv_ext -> 'a -> string
     end
   class ['a, 'a2, 'b, 'b2, 'self] gmap_pv_ext :  ('a -> 'a2) -> ('b -> 'b2) ->
     ( ('a,'b) pv_ext -> 'self) ->
     object
       constraint 'self = [> ('a2, 'b2) pv_ext ]
       inherit ['a, 'a2, 'b, 'b2, 'self ] gmap_pv_t
-      method c_C : unit -> 'a -> 'self
+      method c_C : unit -> ('a, 'b) pv_ext -> 'a -> 'self
     end
 
   val gcata_pv_ext :
@@ -128,11 +129,10 @@ end = struct
   class virtual ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'inh, 'self, 'syn] class_pv_ext =
     object
       inherit ['ia, 'a, 'sa, 'ib, 'b, 'sb, 'inh, 'self, 'syn] class_pv
-      method virtual c_C : 'inh -> 'a -> 'syn
+      method virtual c_C : 'inh -> ('a, 'b) pv_ext -> 'a -> 'syn
     end
 
-  class ['a, 'b] show_pv_ext (fa: 'a -> string) fb
-      (fself: ('a,'b) pv_ext -> string)
+  class ['a, 'b] show_pv_ext (fa: 'a -> string) fb (fself: ('a,'b) pv_ext -> string)
     =
     object
       inherit [ unit, 'a, string
@@ -140,7 +140,7 @@ end = struct
               , unit, ('a, 'b) pv_ext, string
               ] class_pv_ext
       inherit ['a, 'b] show_pv_t fa fb (function #pv as subj -> fself subj)
-      method c_C () a = sprintf "`C (%s)" (fa a)
+      method c_C () _ a = sprintf "`C (%s)" (fa a)
     end
 
   class ['a, 'a2, 'b, 'b2, 'self] gmap_pv_ext
@@ -155,15 +155,15 @@ end = struct
               ] class_pv_ext
       inherit ['a, 'a2, 'b, 'b2, 'self ] gmap_pv_t fa fb
           (function #pv as s -> fself s)
-      method c_C () a (* : ('self, 'a2,'b2) pv_ext_open *) =
+      method c_C () _ a =
         match `C (fa a) with #pv_ext as x -> x
 
     end
 
-  let rec gcata_pv_ext tr inh p =
-    match p with
-    | `C a -> tr#c_C inh a
-    | #pv as subj -> gcata_pv tr inh subj
+  let rec gcata_pv_ext tr inh s =
+    match s with
+    | `C a -> tr#c_C inh s a
+    | #pv as subj -> gcata_pv tr inh s
 
   let pv_ext = { gcata = gcata_pv_ext}
 

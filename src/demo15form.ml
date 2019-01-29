@@ -10,9 +10,9 @@ and u = float s
  * let show0_u s _t _u = s (sprintf "%f") s _t _u
  *
  * let fix1 (s0,t0,u0) =
- *   let rec s: ('a -> 's) -> 'a s -> 's = fun fa -> s0 fa s t u
- *   and t = fun what -> t0 s t u what
- *   and u what = u0 s t u what
+ *   let rec s = fun fa -> s0 fa s0 t u
+ *   and t = fun what -> t0 s0 t u what
+ *   and u what = u0 s0 t u what
  *   in
  *   (s,t,u)
  *
@@ -91,6 +91,6 @@ let show3_t = { t_init3 = (fun     s t u ->
     let module HS = Higher.Newtype1(struct type 'a t = 'a s end) in
     let module HA = Higher.Newtype1(struct type 'a t = string end) in
     (* HA.t esacpes its scope *)
-    M.inj @@ s.s_init3 (fun n -> HA.inj @@ sprintf "%d" n ) s t u)
+    HS.prj @@ s.s_init3 (fun n -> HA.inj @@ sprintf "%d" n ) s t u)
   }
 let show3_u = { u_init3 = (fun     s t u -> s.s_init3 (sprintf "%f") s t u) }

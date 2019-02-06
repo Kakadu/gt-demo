@@ -153,25 +153,66 @@ let () =
 
 (* Now let's try multiparameter data types *)
 type ('a,'b) x = XX of 'a * 'b
-and 'b y       = (int,'b) x
+and y          = (int,float) x
 and z          = (float,int) x
+
+module FixV2(Sym: sig type ('a,'b) i end) =
+struct
+  type fn = { call: 'a 'b . ('a,'b) Sym.i -> 'a }
+
+  let fixv f = let rec g = { call = fun x -> (f g).call x } in g
+end
+
+(* should be geerated *)
+module IndexXYZ (S: sig type 'a result end) =
+struct
+  type ('a,'b) i =
+    | X : ('a S.result -> 'b S.result -> ('a,'b) x S.result,
+           'a S.result -> 'b S.result -> ('a,'b) x S.result) i
+          (* ('a S.result -> 'a x S.result, 'b S.result -> 'b x S.result) i *)
+    | Y : (y S.result,y S.result) i
+    | Z : (z S.result,z S.result) i
+end
 
 module Show2 =
 struct
-  module I = Index(struct type 'a result = 'a -> string end)
-  include FixV(I)
+  module I = IndexXYZ(struct type 'a result = 'a -> string end)
+  include FixV2(I)
 
-  let show0_s {call} fa (SS a) = fa a
-  let show0_t {call}           = call I.S (sprintf "%d")
-  let show0_u {call}           = call I.S (sprintf "%f")
+  let show0_x {call} fa fb  (XX (a,b)) = sprintf "XX(%s,%s)" (fa a) (fb b)
+  let show0_y {call}           = call I.X (sprintf "%d") (sprintf "%f")
+  let show0_z {call}           = call I.X (sprintf "%f") (sprintf "%d")
 
   let show = fixv @@ fun f ->
-   { call = fun (type a) (sym : a I.i) : a -> match sym with
-     | I.S -> show0_s f
-     | I.T -> show0_t f
-     | I.U -> show0_u f }
+   { call = fun (type a) (type b) (sym : (a,b) I.i) : a -> match sym with
+     | I.X -> show0_x f
+     | I.Y -> show0_y f
+     | I.Z -> show0_z f }
 
-  let show_s x = show.call I.S x
-  let show_t x = show.call I.T x
-  let show_u x = show.call I.U x
+  let show_x w = show.call I.X w
+  let show_y w = show.call I.Y w
+  let show_z w = show.call I.Z w
+end
+
+
+type 'a wtf = [ `A of 'a | `B of 'a qwe ]
+and  'a qwe = [ `C of 'a wtf | `D of int ]
+
+let gcata_wtf tr inh subj = match subj with
+    `A a -> tr#c_A inh a
+  | `B s -> tr#c_B inh s
+
+class virtual ['ia,'a,'sa, 'inh, 'self, 'syn] wtf_t = object
+  method virtual c_A : 'inh -> 'a -> 'syn
+  method virtual c_B : 'inh -> 'a qwe -> 'syn
+end
+class virtual ['ia,'a,'sa, 'inh, 'self, 'syn] qwe_t = object
+  method virtual c_C : 'inh -> 'a wtf -> 'syn
+  method virtual c_D : 'inh -> int -> 'syn
+end
+
+class ['self] show_wtf_t fa fself = object
+  inherit [unit,'a,string, unit, 'self, string] wtf_t
+  method c_A () a = fa a
+  method c_B () s = assert false (* sprintf "%S" s *)
 end

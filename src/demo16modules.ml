@@ -194,13 +194,17 @@ struct
   let show_z w = show.call I.Z w
 end
 
-
+(* ******************************************************************* *)
+(* regular polymorphc variants *)
 type 'a wtf = [ `A of 'a | `B of 'a qwe ]
 and  'a qwe = [ `C of 'a wtf | `D of int ]
 
-let gcata_wtf tr inh subj = match subj with
+let gcata_wtf tr inh : _ wtf -> _ = function
     `A a -> tr#c_A inh a
   | `B s -> tr#c_B inh s
+let gcata_qwe tr inh : _ qwe -> _ = function
+  | `C a -> tr#c_C inh a
+  | `D s -> tr#c_D inh s
 
 class virtual ['ia,'a,'sa, 'inh, 'self, 'syn] wtf_t = object
   method virtual c_A : 'inh -> 'a -> 'syn
@@ -211,8 +215,137 @@ class virtual ['ia,'a,'sa, 'inh, 'self, 'syn] qwe_t = object
   method virtual c_D : 'inh -> int -> 'syn
 end
 
-class ['self] show_wtf_t fa fself = object
-  inherit [unit,'a,string, unit, 'self, string] wtf_t
-  method c_A () a = fa a
-  method c_B () s = assert false (* sprintf "%S" s *)
+module Show3 =
+struct
+  (* should be generated *)
+  module Index (S: sig type 'a result end) =
+  struct
+    type ('a,'b) i =
+      | QWE : ('a S.result -> 'a qwe S.result, 'a S.result -> 'a wtf S.result) i
+      | WTF : ('a S.result -> 'a wtf S.result, 'a S.result -> 'a qwe S.result) i
+  end
+
+  module I = Index(struct type 'a result = 'a -> string end)
+  include FixV2(I)
+
+  (* We pass FixV2.fn here to avoid erros like
+     `this has type 'a blah but expected 'a . 'a blah`
+  *)
+  class ['a, 'self] show_wtf_t {call} fa fself = object
+    inherit [unit,'a,string, unit, 'self, string] wtf_t
+    method c_A () a = fa a
+    method c_B () (x: _ qwe) = call I.QWE fa x
+  end
+  class ['a,'self] show_qwe_t {call} fa fself = object
+    inherit [unit,'a,string, unit, 'self, string] qwe_t
+    method c_C () a = call I.WTF fa a
+    method c_D () x = sprintf "%d" x
+  end
+
+  let show0_qwe {call} fa (s: _ qwe) =
+    let rec obj = lazy (new show_qwe_t {call} fa fself)
+    and fself s =  gcata_qwe (Lazy.force obj) () s
+    in
+    fself s
+
+  let show0_wtf {call} fa (s: _ wtf) =
+    let rec obj = lazy (new show_wtf_t {call} fa fself)
+    and fself s =  gcata_wtf (Lazy.force obj) () s
+    in
+    fself s
+
+
+  let show = fixv @@ fun f ->
+   { call = fun (type a) (type b) (sym : (a,b) I.i) : a -> match sym with
+     | I.QWE -> show0_qwe f
+     | I.WTF -> show0_wtf f
+   }
+
+  let show_wtf w = show.call I.WTF w
+  let show_qwe w = show.call I.QWE w
+
+end
+
+(* ******************************************************************* *)
+(* non-regular mutual algebraic data types *)
+type 'a ii = A of 'a     | B of 'a jj
+and  'a jj = C of 'a ii  | D of int | E of int ii | F of 'a jj
+
+let gcata_i tr inh : _ ii -> _ = function
+  | A a -> tr#c_A inh a
+  | B s -> tr#c_B inh s
+let gcata_j tr inh : _ jj -> _ = function
+  | C i -> tr#c_C inh i
+  | D n -> tr#c_D inh n
+  | E i -> tr#c_E inh i
+  | F j -> tr#c_F inh j
+
+class virtual ['ia,'a,'sa, 'inh, 'self, 'syn] i_t = object
+  method virtual c_A : 'inh -> 'a -> 'syn
+  method virtual c_B : 'inh -> 'a jj -> 'syn
+end
+class virtual ['ia,'a,'sa, 'inh, 'self, 'syn] j_t = object
+  method virtual c_C : 'inh -> 'a ii -> 'syn
+  method virtual c_D : 'inh -> int -> 'syn
+  method virtual c_E : 'inh -> int ii -> 'syn
+  method virtual c_F : 'inh -> 'a jj -> 'syn
+end
+
+module Show4 =
+struct
+  (* should be generated *)
+  module Index (S: sig type 'a result end) =
+  struct
+    type 'a i =
+      | I : ('a S.result -> 'a ii S.result) i
+      | J : ('a S.result -> 'a jj S.result) i
+  end
+
+  module I = Index(struct type 'a result = 'a -> string end)
+  include FixV(I)
+
+  (* We pass FixV2.fn here to avoid erros like
+     `this has type 'a blah but expected 'a . 'a blah`
+  *)
+  class ['a, 'self] show_i_t {call} fa fself = object
+    inherit [unit,'a,string, unit, 'self, string] i_t
+    method c_A () a = fa a
+    method c_B () (x: _) = call I.J fa x
+  end
+  class ['a,'self] show_j_t {call} fa fself = object
+    inherit [unit,'a,string, unit, 'self, string] j_t
+    method c_C () i = call I.I fa i
+    method c_D () x = sprintf "%d" x
+    method c_E () x = call I.I (sprintf "%d") x
+    method c_F () jj = call I.J fa jj  (* TODO: can with remove fself entirely? *)
+  end
+
+  let show0_i {call} fa (s: _ ii) =
+    let rec obj = lazy (let () = printf "new II\n" in new show_i_t {call} fa fself)
+    and fself s =  gcata_i (Lazy.force obj) () s
+    in
+    fself s
+
+  let show0_j{call} fa (s: _ jj) =
+    let rec obj = lazy (let () = printf "new JJ\n" in new show_j_t {call} fa fself)
+    and fself s =  gcata_j (Lazy.force obj) () s
+    in
+    fself s
+
+
+  let show = fixv @@ fun f ->
+    { call =
+        let c = fun (type a) (sym : a I.i) : a -> match sym with
+          | I.I -> show0_i f
+          | I.J -> show0_j f
+        in c
+   }
+
+  let show_ii w = show.call I.I w
+  let show_jj w = show.call I.J w
+
+
+
+  let () =
+    print_endline @@ show_ii (sprintf "%d") ( B (F (F (C (B (F (F(D 18))))))))
 end

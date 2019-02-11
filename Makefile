@@ -13,6 +13,7 @@ all:
 		src/demo12mutal.native  \
 		src/demo13mutal.native  \
 		src/demo16modules.native \
+		src/demo17.native \
  #		src/demo14mutal.native  \
 
 hk:

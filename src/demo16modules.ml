@@ -317,7 +317,10 @@ struct
     method c_C () i = call I.I fa i
     method c_D () x = sprintf "%d" x
     method c_E () x = call I.I (sprintf "%d") x
-    method c_F () jj = call I.J fa jj  (* TODO: can with remove fself entirely? *)
+    method c_F () jj =
+      fself jj
+      (* The below will start to generate more objects than needed *)
+      (* call I.J fa jj *)
   end
 
   let show0_i {call} fa (s: _ ii) =
@@ -326,7 +329,7 @@ struct
     in
     fself s
 
-  let show0_j{call} fa (s: _ jj) =
+  let show0_j {call} fa (s: _ jj) =
     let rec obj = lazy (let () = printf "new JJ\n" in new show_j_t {call} fa fself)
     and fself s =  gcata_j (Lazy.force obj) () s
     in
@@ -344,8 +347,9 @@ struct
   let show_ii w = show.call I.I w
   let show_jj w = show.call I.J w
 
-
-
   let () =
-    print_endline @@ show_ii (sprintf "%d") ( B (F (F (C (B (F (F(D 18))))))))
+    (* print_endline @@ show_ii (sprintf "%d") ( B (F (F (C (B (F (F(D 18)))))))); *)
+    print_endline @@ show_jj (sprintf "%d") (F (F (F (F (F (F (F(D 18))))))));
+
+
 end

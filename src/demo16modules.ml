@@ -4,7 +4,9 @@ module FixV(Sym: sig type 'a i end) =
 struct
   type fn = { call: 'a. 'a Sym.i -> 'a }
   (* ∀t.((∀α.α t → α) → (∀α.α t → α)) → (∀α.α t → α) *)
-  let fixv f = let rec g = { call = fun x -> (f g).call x } in g
+  let fixv f =
+    let rec g = lazy { call = fun x -> (f (Lazy.force g)).call x } in
+    Lazy.force g
 end
 
 type 'a s = SS of 'a
@@ -40,13 +42,13 @@ struct
   let show_u x = show.call I.U x
 end
 
-let () =
-  let s,t,u = Show.(show_s, show_t, show_u) in
-  let () = printf "%s\n%!" @@ s (sprintf "%S") (SS "asdf") in
-  let () = printf "%s\n%!" @@ s (sprintf "%b") (SS true) in
-  let () = printf "%s\n%!" @@ t (SS 42) in
-  let () = printf "%s\n%!" @@ u (SS 3.1415) in
-  ()
+(* let () =
+ *   let s,t,u = Show.(show_s, show_t, show_u) in
+ *   let () = printf "%s\n%!" @@ s (sprintf "%S") (SS "asdf") in
+ *   let () = printf "%s\n%!" @@ s (sprintf "%b") (SS true) in
+ *   let () = printf "%s\n%!" @@ t (SS 42) in
+ *   let () = printf "%s\n%!" @@ u (SS 3.1415) in
+ *   () *)
 
 module M = struct
   module I = Index(struct type 'a result = 'a -> 'a end)
@@ -115,13 +117,13 @@ module EQ = struct
   let eq_u x = eq.call I.U x
 end
 
-let () =
-  let eq_int: int -> int -> bool = (=) in
-  let s,t,u = EQ.(eq_s, eq_t, eq_u) in
-  assert (s eq_int (SS 5) (SS 5));
-  assert (t        (SS 5) (SS 5));
-  assert (u        (SS 5.) (SS 5.));
-  assert (not (u   (SS 5.) (SS 6.)))
+(* let () =
+ *   let eq_int: int -> int -> bool = (=) in
+ *   let s,t,u = EQ.(eq_s, eq_t, eq_u) in
+ *   assert (s eq_int (SS 5) (SS 5));
+ *   assert (t        (SS 5) (SS 5));
+ *   assert (u        (SS 5.) (SS 5.));
+ *   assert (not (u   (SS 5.) (SS 6.))) *)
 
 module Fmt = struct
   module I = Index(struct type 'a result = Format.formatter -> 'a -> unit end)
@@ -142,13 +144,13 @@ module Fmt = struct
   let fmt_u x = fmt.call I.U x
 end
 
-let () =
-  let s,t,u = Show.(show_s, show_t, show_u) in
-  let () = Format.fprintf Format.std_formatter "%s\n%!" @@ s (sprintf "%S") (SS "asdf") in
-  let () = Format.fprintf Format.std_formatter "%s\n%!" @@ s (sprintf "%b") (SS true) in
-  let () = Format.fprintf Format.std_formatter "%s\n%!" @@ t (SS 42) in
-  let () = Format.fprintf Format.std_formatter "%s\n%!" @@ u (SS 3.1415) in
-  ()
+(* let () =
+ *   let s,t,u = Show.(show_s, show_t, show_u) in
+ *   let () = Format.fprintf Format.std_formatter "%s\n%!" @@ s (sprintf "%S") (SS "asdf") in
+ *   let () = Format.fprintf Format.std_formatter "%s\n%!" @@ s (sprintf "%b") (SS true) in
+ *   let () = Format.fprintf Format.std_formatter "%s\n%!" @@ t (SS 42) in
+ *   let () = Format.fprintf Format.std_formatter "%s\n%!" @@ u (SS 3.1415) in
+ *   () *)
 
 
 (* Now let's try multiparameter data types *)
@@ -347,9 +349,76 @@ struct
   let show_ii w = show.call I.I w
   let show_jj w = show.call I.J w
 
-  let () =
-    (* print_endline @@ show_ii (sprintf "%d") ( B (F (F (C (B (F (F(D 18)))))))); *)
-    print_endline @@ show_jj (sprintf "%d") (F (F (F (F (F (F (F(D 18))))))));
+  (* let () =
+   *   (\* print_endline @@ show_ii (sprintf "%d") ( B (F (F (C (B (F (F(D 18)))))))); *\)
+   *   print_endline @@ show_jj (sprintf "%d") (F (F (F (F (F (F (F(D 18)))))))); *)
 
+
+end
+
+(* ******************************************************************* *)
+
+module XXX = struct
+
+type 'a zz = A of 'a     | B of int zz | C of float zz
+
+
+let gcata_zz tr inh : _ zz -> _ = function
+  | A s -> tr#c_A inh s
+  | B s -> tr#c_B inh s
+  | C s -> tr#c_C inh s
+
+class virtual ['ia,'a,'sa, 'inh, 'self, 'syn] zz_t = object
+  method virtual c_A : 'inh -> 'a -> 'syn
+  method virtual c_B : 'inh -> int zz -> 'syn
+  method virtual c_C : 'inh -> float zz -> 'syn
+end
+
+module Show4 =
+struct
+  (* should be generated *)
+  module Index (S: sig type 'a result end) =
+  struct
+    type 'a i =
+      | ZZ : ('a S.result -> 'a zz S.result) i
+  end
+
+  module I = Index(struct type 'a result = 'a -> string end)
+  include FixV(I)
+
+  (* We pass FixV2.fn here to avoid erros like
+     `this has type 'a blah but expected 'a . 'a blah`
+  *)
+  class ['a, 'self] show_zz_t {call} fa fself =
+    object
+    inherit [unit,'a,string, unit, 'self, string] zz_t
+    method c_A () a = fa a
+    method c_B () (x: _) = call I.ZZ (sprintf "%d") x
+    method c_C () (x: _) = call I.ZZ (sprintf "%f") x
+  end
+
+  let show0_zz {call} fa (s: _ zz) =
+    let rec obj = lazy (let () = printf "new ZZ\n" in new show_zz_t {call} fa fself)
+    and fself s =  gcata_zz (Lazy.force obj) () s
+    in
+    fself s
+
+
+  let show =
+    let foo = fun f ->
+      { call =
+          fun (type a) (sym : a I.i) : a -> match sym with
+            | I.ZZ -> show0_zz f
+
+      }
+    in
+    fixv foo
+
+  let show_zz w = show.call I.ZZ w
+
+  let () =
+    print_endline @@ show_zz (sprintf "%f") (C (C (C (C (A 1.8)))));
+
+end
 
 end

@@ -397,20 +397,47 @@ struct
     method c_C () (x: _) = call I.ZZ (sprintf "%f") x
   end
 
-  let show0_zz {call} fa (s: _ zz) =
+  let show0_zz {call} fa =
     let rec obj = lazy (let () = printf "new ZZ\n" in new show_zz_t {call} fa fself)
     and fself s =  gcata_zz (Lazy.force obj) () s
     in
-    fself s
+    fself
 
+  module PhysHash = Hashtbl.Make(struct
+      type t = Obj.t
+      let compare x y = compare (Obj.magic x) (Obj.magic y)
+      let equal = (==)
+      let hash = Hashtbl.hash
+    end)
 
   let show =
+    let h = PhysHash.create 13 in
     let foo = fun f ->
-      { call =
-          fun (type a) (sym : a I.i) : a -> match sym with
-            | I.ZZ -> show0_zz f
-
-      }
+      let rec c =
+        { call =
+            fun (type a) (sym : a I.i) : a -> match sym with
+              | I.ZZ -> begin
+                  fun fa ->
+                    printf "Looking for fa with addr = %d\n%!" (Obj.magic fa);
+                    printf "testing fa = %s\n%!" (Obj.magic fa (float_of_int PhysHash.((stats h).num_bindings)));
+                    match PhysHash.find_opt h (Obj.repr fa) with
+                    | Some o ->
+                      printf "obj not found in Hashtbl of size %d\n%!" PhysHash.((stats h).num_bindings);
+                      Obj.magic o
+                    | None ->
+                      (* let rec obj = lazy (let () = printf "new ZZ\n" in new show_zz_t c fa fself)
+                       * and fself s = gcata_zz (Lazy.force obj) () s
+                       * in *)
+                      let ans = show0_zz c fa in
+                      printf "has  Hashtbl with num_bindings=%d\n%!" PhysHash.((stats h).num_bindings);
+                      PhysHash.add h (Obj.repr fa) (Obj.repr ans);
+                      printf "added to Hashtbl with num_bindings=%d\n%!" PhysHash.((stats h).num_bindings);
+                      (* assert (Hashtbl.find_opt h fa <> None); *)
+                      ans
+                end
+        }
+      in
+      c
     in
     fixv foo
 

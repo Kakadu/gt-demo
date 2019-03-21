@@ -1,4 +1,5 @@
 open Printf
+let id x = x
 
 module FixV(Sym: sig type 'a i end) =
 struct
@@ -13,6 +14,11 @@ type 'a s = SS of 'a
 and t = int s
 and u = float s
 
+let gcata_s tr inh = function
+  | SS a -> tr#c_SS inh a
+let gcata_t = gcata_s
+let gcata_u = gcata_s
+
 (* should be generated *)
 module Index (S: sig type 'a result end) =
 struct
@@ -22,24 +28,51 @@ struct
     | U : u S.result i
 end
 
+(* should be generated *)
+module type IndexResult2 = sig
+  type (_,_) result
+  type _ i =
+    | S : (('a,'b) result -> ('a s,'b s) result) i
+    | T : (t,t) result i
+    | U : (u,u) result i
+end
+module Index2 (S : sig type ('a, 'b) result end) = struct
+  type ('a,'b) result = ('a,'b) S.result
+  type _ i =
+    | S : (('a,'b) result -> ('a s,'b s) result) i
+    | T : (t,t) result i
+    | U : (u,u) result i
+end
+
 module Show =
 struct
   module I = Index(struct type 'a result = 'a -> string end)
-  include FixV(I)
+  module FixSgmap = FixV(I)
 
-  let show0_s {call} fa (SS a) = fa a
-  let show0_t {call}           = call I.S (sprintf "%d")
-  let show0_u {call}           = call I.S (sprintf "%f")
+  class ['a] show_s (call: FixSgmap.fn) fa = object
+    method c_SS () (a: 'a) = sprintf "SS (%s)" (fa a)
+  end
+  class ['a] show_t call = object
+    method do_t () x : string = call.FixSgmap.call I.S (sprintf "%d") x
+  end
+  class ['a] show_u call = object
+    method do_u () x = call.FixSgmap.call I.S (sprintf "%f") x
+  end
+  let show0_s call fa s =
+    gcata_s (new show_s call fa) () s
 
-  let show = fixv @@ fun f ->
+  let show0_t {FixSgmap.call}           = call I.S (sprintf "%d")
+  let show0_u {FixSgmap.call}           = call I.S (sprintf "%f")
+
+  let show = FixSgmap.fixv @@ fun f ->
    { call = fun (type a) (sym : a I.i) : a -> match sym with
      | I.S -> show0_s f
      | I.T -> show0_t f
      | I.U -> show0_u f }
 
-  let show_s x = show.call I.S x
-  let show_t x = show.call I.T x
-  let show_u x = show.call I.U x
+  let show_s x = show.FixSgmap.call I.S x
+  let show_t x = show.FixSgmap.call I.T x
+  let show_u x = show.FixSgmap.call I.U x
 end
 
 (* let () =
@@ -70,24 +103,16 @@ module M = struct
 end
 
 
-(* should be generated *)
-module Index2 (S: sig type ('a,'b) result end) =
-struct
-  type 'a i =
-    | S : (('a,'b) S.result -> ('a s,'b s) S.result) i
-    | T : (t,t) S.result i
-    | U : (u,u) S.result i
-end
-
 module GMap = struct
-  module I = Index2(struct type ('a,'b) result = 'a -> 'b end)
-  include FixV(I)
+  module I : (IndexResult2 with type ('a,'b) result = 'a -> 'b) =
+    Index2(struct type ('a,'b) result = 'a -> 'b end)
+  module Fix_gmap = FixV(I)
 
-  let map0_s {call} fa (SS a) = SS (fa a)
-  let map0_t {call}           = call I.S (fun (x:int) -> x)
-  let map0_u {call}           = call I.S (fun (x:float) -> x)
+  let map0_s {Fix_gmap.call} fa (SS a) = SS (fa a)
+  let map0_t {Fix_gmap.call}           = call I.S (fun (x:int) -> x)
+  let map0_u {Fix_gmap.call}           = call I.S (fun (x:float) -> x)
 
-  let map = fixv @@ fun f ->
+  let map = Fix_gmap.fixv @@ fun f ->
    { call = fun (type a) (sym : a I.i) : a -> match sym with
      | I.S -> map0_s f
      | I.T -> map0_t f
@@ -152,41 +177,70 @@ end
  *   let () = Format.fprintf Format.std_formatter "%s\n%!" @@ u (SS 3.1415) in
  *   () *)
 
+(* ********************************************************************************** *)
+module SSSS = struct
+  type 'a ssss = 'a s
+  let gcata_ssss = gcata_s
+  module IndexSSSS (S: sig type 'a result end) = struct
+    type 'a i = SSSS : ('a S.result -> 'a ssss S.result) i
+  end
 
+  module IshowSSSS = IndexSSSS(struct type 'a result = 'a -> string end)
+  module Fix_show_SSSS = FixV(IshowSSSS)
+
+  class ['a] show_ssss call fa = object
+    inherit ['a] Show.show_s Show.show fa
+  end
+  let show0 call fa = gcata_ssss (new show_ssss call fa) ()
+  let map = Fix_show_SSSS.fixv @@ fun f ->
+   { call = fun (type a) (sym : a IshowSSSS.i) : a -> match sym with
+     | IshowSSSS.SSSS -> show0 f
+   }
+
+  let show_ssss x = map.Fix_show_SSSS.call IshowSSSS.SSSS x
+
+
+end
+(* ********************************************************************************** *)
+module X = struct
 (* Now let's try multiparameter data types *)
 type ('a,'b) x = XX of 'a * 'b
 and y          = (int,float) x
 and z          = (float,int) x
 
-module FixV2(Sym: sig type ('a,'b) i end) =
-struct
-  type fn = { call: 'a 'b . ('a,'b) Sym.i -> 'a }
-
-  let fixv f = let rec g = { call = fun x -> (f g).call x } in g
+(* should be generated *)
+module Index1 (S: sig type 'a result end) = struct
+  type _ i =
+    | X : ('a S.result -> 'b S.result -> ('a,'b) x S.result) i
+    | Y : (y S.result) i
+    | Z : (z S.result) i
 end
-
-(* should be geerated *)
-module IndexXYZ (S: sig type 'a result end) =
-struct
-  type ('a,'b) i =
-    | X : ('a S.result -> 'b S.result -> ('a,'b) x S.result,
-           'a S.result -> 'b S.result -> ('a,'b) x S.result) i
-          (* ('a S.result -> 'a x S.result, 'b S.result -> 'b x S.result) i *)
-    | Y : (y S.result,y S.result) i
-    | Z : (z S.result,z S.result) i
+module type IndexResult2 = sig
+  type (_,_) result
+  type _ i =
+    | X : (('a, 'a2) result -> ('b,'b2) result -> (('a,'b) x, ('a2,'b2) x) result) i
+    | Y : (y,y) result i
+    | Z : (z,z) result i
+end
+module Index2 (S: sig type ('a,'b) result end) = struct
+  type ('a,'b) result = ('a,'b) S.result
+  type _ i =
+    | X : (('a, 'a2) S.result -> ('b,'b2) S.result -> (('a,'b) x, ('a2,'b2) x) S.result) i
+    | Y : (y,y) S.result i
+    | Z : (z,z) S.result i
 end
 
 module Show2 =
 struct
-  module I = IndexXYZ(struct type 'a result = 'a -> string end)
-  include FixV2(I)
+  module I = Index1(struct type 'a result = 'a -> string end)
+  include FixV(I)
 
   let show0_x {call} fa fb  (XX (a,b)) = sprintf "XX(%s,%s)" (fa a) (fb b)
   let show0_y {call}           = call I.X (sprintf "%d") (sprintf "%f")
   let show0_z {call}           = call I.X (sprintf "%f") (sprintf "%d")
 
   let show = fixv @@ fun f ->
-   { call = fun (type a) (type b) (sym : (a,b) I.i) : a -> match sym with
+   { call = fun (type a) (sym : a I.i) : a -> match sym with
      | I.X -> show0_x f
      | I.Y -> show0_y f
      | I.Z -> show0_z f }
@@ -194,6 +248,27 @@ struct
   let show_x w = show.call I.X w
   let show_y w = show.call I.Y w
   let show_z w = show.call I.Z w
+end
+
+module GMap2 = struct
+  module I : (IndexResult2 with type ('a,'b) result = 'a -> 'b) =
+    Index2(struct type ('a,'b) result = 'a -> 'b end)
+  module Fix_gmap = FixV(I)
+
+  let map0_x {Fix_gmap.call} fa fb (XX (a,b)) = XX (fa a, fb b)
+  let map0_y {Fix_gmap.call}                  = call I.Y
+  let map0_z {Fix_gmap.call}                  = call I.Z
+
+  let map = Fix_gmap.fixv @@ fun f ->
+   { call = fun (type a) (sym : a I.i) : a -> match sym with
+     | I.X -> map0_x f
+     | I.Y -> map0_y f
+     | I.Z -> map0_z f }
+
+  let map_x x = map.call I.X x
+  let map_y x = map.call I.Y x
+  let map_z x = map.call I.Z x
+end
 end
 
 (* ******************************************************************* *)
@@ -222,13 +297,13 @@ struct
   (* should be generated *)
   module Index (S: sig type 'a result end) =
   struct
-    type ('a,'b) i =
-      | QWE : ('a S.result -> 'a qwe S.result, 'a S.result -> 'a wtf S.result) i
-      | WTF : ('a S.result -> 'a wtf S.result, 'a S.result -> 'a qwe S.result) i
+    type _ i =
+      | QWE : ('a S.result -> 'a qwe S.result) i
+      | WTF : ('a S.result -> 'a wtf S.result) i
   end
 
   module I = Index(struct type 'a result = 'a -> string end)
-  include FixV2(I)
+  include FixV(I)
 
   (* We pass FixV2.fn here to avoid erros like
      `this has type 'a blah but expected 'a . 'a blah`
@@ -258,7 +333,7 @@ struct
 
 
   let show = fixv @@ fun f ->
-   { call = fun (type a) (type b) (sym : (a,b) I.i) : a -> match sym with
+   { call = fun (type a) (sym : a I.i) : a -> match sym with
      | I.QWE -> show0_qwe f
      | I.WTF -> show0_wtf f
    }
@@ -411,35 +486,12 @@ struct
     end)
 
   let show =
-    let h = PhysHash.create 13 in
-    let foo = fun f ->
-      let rec c =
-        { call =
-            fun (type a) (sym : a I.i) : a -> match sym with
-              | I.ZZ -> begin
-                  fun fa ->
-                    printf "Looking for fa with addr = %d\n%!" (Obj.magic fa);
-                    printf "testing fa = %s\n%!" (Obj.magic fa (float_of_int PhysHash.((stats h).num_bindings)));
-                    match PhysHash.find_opt h (Obj.repr fa) with
-                    | Some o ->
-                      printf "obj not found in Hashtbl of size %d\n%!" PhysHash.((stats h).num_bindings);
-                      Obj.magic o
-                    | None ->
-                      (* let rec obj = lazy (let () = printf "new ZZ\n" in new show_zz_t c fa fself)
-                       * and fself s = gcata_zz (Lazy.force obj) () s
-                       * in *)
-                      let ans = show0_zz c fa in
-                      printf "has  Hashtbl with num_bindings=%d\n%!" PhysHash.((stats h).num_bindings);
-                      PhysHash.add h (Obj.repr fa) (Obj.repr ans);
-                      printf "added to Hashtbl with num_bindings=%d\n%!" PhysHash.((stats h).num_bindings);
-                      (* assert (Hashtbl.find_opt h fa <> None); *)
-                      ans
-                end
-        }
-      in
-      c
-    in
-    fixv foo
+    fixv @@ fun f ->
+      { call = fun (type a) ->
+          fun (sym : a I.i) -> (match sym with
+            | I.ZZ -> show0_zz f : a)
+
+      }
 
   let show_zz w = show.call I.ZZ w
 
@@ -447,5 +499,177 @@ struct
     print_endline @@ show_zz (sprintf "%f") (C (C (C (C (A 1.8)))));
 
 end
+
+end
+
+
+
+module PVar1 = struct
+  type a = [ `A ]
+
+  let gcata tr inh = function `A -> tr#c_A inh ()
+  class virtual ['inh, 'self, 'syn] a_t = object
+    method virtual c_A : 'inh -> unit -> 'syn
+  end
+  module Index (S: sig type 'a result end) = struct
+    type 'a i = PA : a S.result i
+  end
+  module Index2 (S: sig type ('a,'b) result end) = struct
+    type 'a i = PA : (a,a) S.result i
+  end
+
+  module Ishow_a = Index(struct type 'a result = 'a -> string end)
+  module Fix_show_a = FixV(Ishow_a)
+  class ['self] show_a_t {Fix_show_a.call} fself = object
+    inherit [unit, 'self, string] a_t
+    method c_A () () = "`A"
+  end
+  let show_a_0 call = Utils.fix0 (fun fself -> gcata (new show_a_t call fself) ())
+  let show_fix =
+    Fix_show_a.fixv (fun f ->
+        {call = fun (type w) (sym : w Ishow_a.i) : w ->
+            match sym with Ishow_a.PA -> show_a_0 f })
+
+  module Igmap_a = Index2(struct type ('a,'b) result = 'a -> 'b end)
+  module Fix_gmap_a = FixV(Igmap_a)
+  class ['self] gmap_a_t {Fix_gmap_a.call} fself = object
+    inherit [unit, 'self, 'self] a_t
+    constraint 'self = [> a ]
+    method c_A () () = `A
+  end
+  let gmap_a_0 call = Utils.fix0 (fun fself -> gcata (new gmap_a_t call fself) ())
+  let gmap_fix =
+    Fix_gmap_a.fixv (fun f ->
+        {call = fun (type w) (sym : w Igmap_a.i) : w ->
+            match sym with Igmap_a.PA -> gmap_a_0 f })
+
+  module Ieq_a = Index(struct type 'a result = 'a -> 'a -> bool end)
+  module Fix_eq_a = FixV(Ieq_a)
+  class ['self] eq_a_t {Fix_eq_a.call} fself = object
+    inherit ['self, 'self, bool] a_t
+    method c_A _ () = true
+  end
+  let eq_a_0 call = Utils.fix0 (fun fself -> gcata (new eq_a_t call fself))
+  let eq_fix =
+    Fix_eq_a.fixv (fun f ->
+        {call = fun (type w) (sym : w Ieq_a.i) : w ->
+            match sym with Ieq_a.PA -> eq_a_0 f })
+
+
+end
+
+module PVar2 = struct
+  type b = [ `B ]
+
+  let gcata tr inh = function `B -> tr#c_B inh ()
+  class virtual [ 'inh, 'self, 'syn ] b_t = object
+    method virtual c_B : 'inh -> unit -> 'syn
+  end
+  module Index (S: sig type 'a result end) = struct
+    type 'a i = PB : b S.result i
+  end
+  module Index2 (S: sig type ('a,'b) result end) = struct
+    type 'a i = PB : (b,b) S.result i
+  end
+
+  module Ishow_b = Index(struct type 'a result = 'a -> string end)
+  module Fix_show_b = FixV(Ishow_b)
+  class ['self] show_b_t {Fix_show_b.call} fself = object
+    inherit [unit, 'self, string] b_t
+    method c_B () () = "`B"
+  end
+  let show_b_0 call = Utils.fix0 (fun fself -> gcata (new show_b_t call fself) ())
+  let show_fix =
+    Fix_show_b.fixv (fun f ->
+        {call = fun (type w) (sym : w Ishow_b.i) : w ->
+            match sym with Ishow_b.PB -> show_b_0 f })
+
+  module Igmap_b = Index2(struct type ('a,'b) result = 'a -> 'b end)
+  module Fix_gmap_b = FixV(Igmap_b)
+  class ['self] gmap_b_t {Fix_gmap_b.call} fself = object
+    inherit [unit, 'self, 'self] b_t
+    constraint 'self = [> b ]
+    method c_B () () = `B
+  end
+  let gmap_b_0 call = Utils.fix0 (fun fself -> gcata (new gmap_b_t call fself) ())
+  let gmap_fix =
+    Fix_gmap_b.fixv (fun f ->
+        {call = fun (type w) (sym : w Igmap_b.i) : w ->
+            match sym with Igmap_b.PB -> gmap_b_0 f })
+
+  module Ieq_b = Index(struct type 'a result = 'a -> 'a -> bool end)
+  module Fix_eq_b = FixV(Ieq_b)
+  class ['self] eq_b_t {Fix_eq_b.call} fself = object
+    inherit ['self, 'self, bool] b_t
+    method c_B _ () = true
+  end
+  let eq_b_0 call = Utils.fix0 (fun fself -> gcata (new eq_b_t call fself))
+  let eq_fix =
+    Fix_eq_b.fixv (fun f ->
+        {call = fun (type w) (sym : w Ieq_b.i) : w ->
+            match sym with Ieq_b.PB -> eq_b_0 f })
+
+
+end
+
+module PVar3 = struct
+  type c = [ PVar1.a | PVar2.b ]
+
+  let gcata tr inh = function
+    | #PVar1.a as x -> PVar1.gcata tr inh x
+    | #PVar2.b as x -> PVar2.gcata tr inh x
+  class virtual [ 'inh, 'self, 'syn ] c_t = object
+    inherit ['inh, 'self, 'syn ] PVar1.a_t
+    inherit ['inh, 'self, 'syn ] PVar2.b_t
+  end
+
+  module Index (S: sig type 'a result end) = struct
+    type 'a i = PC : c S.result i
+  end
+  module Index2(S: sig type ('a,'b) result end) = struct
+    type 'a i = PC : (c,c) S.result i
+  end
+
+  module Ishow_c = Index(struct type 'a result = 'a -> string end)
+  module Fix_show_c = FixV(Ishow_c)
+
+  class ['self] show_c_t {Fix_show_c.call} fself = object
+    inherit [unit, 'self, string] c_t
+    inherit ['self] PVar1.show_a_t PVar1.show_fix fself
+    inherit ['self] PVar2.show_b_t PVar2.show_fix fself
+  end
+  let show_c_0 call = Utils.fix0 (fun fself -> gcata (new show_c_t call fself) ())
+  let show_fix =
+    Fix_show_c.fixv (fun f ->
+        {call = fun (type w) (sym : w Ishow_c.i) : w ->
+            match sym with Ishow_c.PC -> show_c_0 f })
+
+
+  module Igmap_c = Index2(struct type ('a,'b) result = 'a -> 'b end)
+  module Fix_gmap_c = FixV(Igmap_c)
+  class ['self] gmap_c_t {Fix_gmap_c.call} fself = object
+    inherit [unit, 'self, 'self] c_t
+    constraint 'self = [> c ]
+    inherit ['self] PVar1.gmap_a_t PVar1.gmap_fix fself
+    inherit ['self] PVar2.gmap_b_t PVar2.gmap_fix fself
+  end
+  let gmap_c_0 call = Utils.fix0 (fun fself -> gcata (new gmap_c_t call fself) ())
+  let gmap_fix =
+    Fix_gmap_c.fixv (fun f ->
+        {call = fun (type w) (sym : w Igmap_c.i) : w ->
+            match sym with Igmap_c.PC -> gmap_c_0 f })
+
+  module Ieq_c = Index(struct type 'a result = 'a -> 'a -> bool end)
+  module Fix_eq_c = FixV(Ieq_c)
+  class ['self] eq_c_t {Fix_eq_c.call} fself = object
+    inherit ['self, 'self, bool] c_t
+    inherit ['self] PVar1.eq_a_t PVar1.eq_fix fself
+    inherit ['self] PVar2.eq_b_t PVar2.eq_fix fself
+  end
+  let eq_c_0 call inh = Utils.fix (fun fself -> gcata (new eq_c_t call fself)) inh
+  let eq_fix =
+    Fix_eq_c.fixv (fun f ->
+        {call = fun (type w) (sym : w Ieq_c.i) : w ->
+            match sym with Ieq_c.PC -> eq_c_0 f })
 
 end

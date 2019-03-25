@@ -662,14 +662,455 @@ module PVar3 = struct
   module Ieq_c = Index(struct type 'a result = 'a -> 'a -> bool end)
   module Fix_eq_c = FixV(Ieq_c)
   class ['self] eq_c_t {Fix_eq_c.call} fself = object
-    inherit ['self, 'self, bool] c_t
-    inherit ['self] PVar1.eq_a_t PVar1.eq_fix fself
-    inherit ['self] PVar2.eq_b_t PVar2.eq_fix fself
+    inherit [[> c ] as 'self, 'self, bool] c_t
+    inherit ['self] PVar1.eq_a_t PVar1.eq_fix
+        (fun inh -> function #PVar1.a as subj -> fself inh subj)
+    inherit ['self] PVar2.eq_b_t PVar2.eq_fix
+        (fun inh -> function #PVar2.b as subj -> fself inh subj)
+
   end
   let eq_c_0 call inh = Utils.fix (fun fself -> gcata (new eq_c_t call fself)) inh
   let eq_fix =
     Fix_eq_c.fixv (fun f ->
         {call = fun (type w) (sym : w Ieq_c.i) : w ->
             match sym with Ieq_c.PC -> eq_c_0 f })
+
+end
+
+(* module Stateful = struct
+ * module A = struct
+ *   type 'a t = [`A]
+ *
+ *   class virtual ['ia, 'a, 'sa, 'inh, 'extra, 'syn] t_t =
+ *     object
+ *       method virtual c_A : 'inh -> 'a t -> 'syn
+ *     end
+ *
+ *   let gcata_t tr inh subj = match subj with `A -> tr#c_A inh subj
+ *
+ *   module type IndexResult_stateful_t = sig
+ *     type ('env, 'a, 'b) result
+ *
+ *     type 'dummy0 i =
+ *       | T : (('env, 'a, 'a2) result -> ('env, 'a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Index_stateful_t (S : sig
+ *     type ('env, 'a, 'b) result
+ *   end) =
+ *   struct
+ *     type ('env, 'a, 'b) result = ('env, 'a, 'b) S.result
+ *
+ *     type 'dummy0 i =
+ *       | T : (('env, 'a, 'a2) result -> ('env, 'a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Istateful_t = Index_stateful_t (struct
+ *     type ('env, 'a, 'b) result = 'env -> 'a -> 'env * 'b
+ *   end)
+ *
+ *   module Fix_stateful_t = FixV (Istateful_t)
+ *
+ *   class ['a, 'a_2, 'env, 'extra_t] stateful_t_t _ fa fself_t =
+ *     object
+ *       inherit ['env, 'a, 'env * 'a_2, 'env, 'extra_t, 'env * 'extra_t] t_t
+ *       (\* constraint 'extra_t = [> 'a_2 t ] *\)
+ *       method c_A inh___001_ _ =
+ *         (\* (inh___001_, match `A with #t as s -> s) *\)
+ *         (inh___001_, `A )
+ *     end
+ *
+ *   let stateful_t_0 call fa inh0 subj =
+ *     Utils.fix (fun fself ->  gcata_t (new stateful_t_t call fa fself)) inh0 subj
+ *
+ *   let stateful_t_fix =
+ *     Fix_stateful_t.fixv (fun f ->
+ *         { call=
+ *             (fun (type a) (sym : a Istateful_t.i) ->
+ *               (match sym with Istateful_t.T -> stateful_t_0 f : a) ) } )
+ *
+ *   let t =
+ *     { Utils.gcata = gcata_t
+ *     }
+ * end
+ *
+ * module B = struct
+ *   type 'b t = [`B]
+ *
+ *   class virtual ['ib, 'b, 'sb, 'inh, 'extra, 'syn] t_t =
+ *     object
+ *       method virtual c_B : 'inh -> 'b t -> 'syn
+ *     end
+ *
+ *   let gcata_t tr inh subj = match subj with `B -> tr#c_B inh subj
+ *
+ *
+ *   module type IndexResult_stateful_t = sig
+ *     type ('env, 'a, 'b) result
+ *
+ *     type 'dummy0 i =
+ *       | T : (('env, 'a, 'a2) result -> ('env, 'a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Index_stateful_t (S : sig
+ *     type ('env, 'a, 'b) result
+ *   end) =
+ *   struct
+ *     type ('env, 'a, 'b) result = ('env, 'a, 'b) S.result
+ *
+ *     type 'dummy0 i =
+ *       | T : (('env, 'a, 'a2) result -> ('env, 'a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Istateful_t = Index_stateful_t (struct
+ *     type ('env, 'a, 'b) result = 'env -> 'a -> 'env * 'b
+ *   end)
+ *
+ *   module Fix_stateful_t = FixV (Istateful_t)
+ *
+ *   class ['b, 'b_2, 'env, 'extra_t] stateful_t_t _ fb fself_t =
+ *     object
+ *       inherit ['env, 'b, 'env * 'b_2, 'env, 'extra_t, 'env * 'extra_t] t_t
+ *       (\* constraint 'extra_t = [> 'b_2 t ] *\)
+ *       method c_B inh___002_ _ =
+ *         (\* (inh___002_, match `B with #t as s -> s) *\)
+ *         (inh___002_, `B)
+ *     end
+ *
+ *   let stateful_t_0 call fb inh0 subj =
+ *     Utils.fix (fun fself ->  gcata_t (new stateful_t_t call fb fself)) inh0 subj
+ *
+ *   let stateful_t_fix =
+ *     Fix_stateful_t.fixv (fun f ->
+ *         { call=
+ *             (fun (type a) (sym : a Istateful_t.i) ->
+ *               (match sym with Istateful_t.T -> stateful_t_0 f : a) ) } )
+ *
+ *   let t = { Utils.gcata = gcata_t }
+ * end
+ *
+ * let stateful_string inh subj = (inh,subj)
+ * let stateful_int    inh subj = (inh,subj)
+ *
+ * module Z = struct
+ *   type 'x t = [ int A.t | string B.t]
+ *
+ *   class virtual ['ix, 'x, 'sx, 'inh, 'extra, 'syn] t_t =
+ *     object
+ *       inherit [ int, int, int,          'inh, 'extra, 'syn] A.t_t
+ *       inherit [ string, string, string, 'inh, 'extra, 'syn] B.t_t
+ *     end
+ *
+ *   let gcata_t tr inh subj =
+ *     match subj with
+ *     | #A.t as subj -> A.gcata_t tr inh subj
+ *     | #B.t as subj -> B.gcata_t tr inh subj
+ *
+ *   module type IndexResult_stateful_t = sig
+ *     type ('env, 'a, 'b) result
+ *
+ *     type 'dummy0 i =
+ *       | T : (('env, 'a, 'a2) result -> ('env, 'a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Index_stateful_t (S : sig    type ('env, 'a, 'b) result  end) =
+ *   struct
+ *     type ('env, 'a, 'b) result = ('env, 'a, 'b) S.result
+ *
+ *     type 'dummy0 i =
+ *       | T : (('env, 'a, 'a2) result -> ('env, 'a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Istateful_t = Index_stateful_t (struct
+ *     type ('env, 'a, 'b) result = 'env -> 'a -> 'env * 'b
+ *   end)
+ *
+ *   module Fix_stateful_t = FixV (Istateful_t)
+ *
+ *   class ['x, 'x_2, 'env, 'extra_t] stateful_t_t _ fx fself_t =
+ *     object
+ *       inherit ['env, 'x, 'env * 'x_2, 'env, 'extra_t, 'env * 'x_2 t] t_t
+ *
+ *       inherit
+ *         [string, string, 'env, 'extra_t] B.stateful_t_t
+ *           B.stateful_t_fix
+ *           (fun inh subj -> stateful_string inh subj)
+ *           (fun inh subj -> match subj with #B.t as subj -> fself_t inh subj)
+ *       inherit
+ *         [int, int, 'env, 'extra_t] A.stateful_t_t
+ *           A.stateful_t_fix
+ *           (fun inh subj -> stateful_int inh subj)
+ *           (fun inh subj -> match subj with #A.t as subj -> fself_t inh subj)
+ *
+ *     end
+ *
+ *   let stateful_t_0 call fa inh0 subj =
+ *     Utils.fix (fun fself ->  gcata_t (new stateful_t_t call fa fself)) inh0 subj
+ *
+ *
+ *   let stateful_t_fix =
+ *     Fix_stateful_t.fixv (fun f ->
+ *         { call=
+ *             (fun (type a) (sym : a Istateful_t.i) ->
+ *               (match sym with Istateful_t.T -> stateful_t_0 f : a) ) } )
+ *
+ *   let t =
+ *     { Utils.gcata= gcata_t
+ *     }
+ * end
+ *
+ * end *)
+
+
+let eval_string inh subj = subj
+let eval_int    inh subj = subj
+
+(* module Eval =  struct
+ *
+ * module A = struct
+ *   type 'a t = [`A]
+ *
+ *   class virtual ['ia, 'a, 'sa, 'inh, 'extra, 'syn] t_t =
+ *     object
+ *       method virtual c_A : 'inh -> 'a t -> 'syn
+ *     end
+ *
+ *   let gcata_t tr inh subj = match subj with `A -> tr#c_A inh subj
+ *
+ *   module type IndexResult2_t = sig
+ *     type ('a, 'b) result
+ *
+ *     type 'dummy0 i = T : (('a, 'a2) result -> ('a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Index2_t (S : sig
+ *     type ('a, 'b) result
+ *   end) =
+ *   struct
+ *     type ('a, 'b) result = ('a, 'b) S.result
+ *
+ *     type 'dummy0 i = T : (('a, 'a2) result -> ('a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Ieval_t = Index2_t (struct
+ *     type ('a, 'b) result = unit -> 'a -> 'b
+ *   end)
+ *
+ *   module Fix_eval_t = FixV (Ieval_t)
+ *
+ *   class ['a, 'a_2, 'env, 'extra_t] eval_t_t _ fa fself_t =
+ *     object
+ *       inherit ['env, 'a, 'a_2, 'env, 'extra_t, 'extra_t] t_t
+ *       method c_A inh___001_ _ = `A
+ *     end
+ *
+ *   let eval_t_0 call fa inh0 subj =
+ *     Utils.fix (fun fself ->  gcata_t (new eval_t_t call fa fself)) inh0 subj
+ *
+ *   let eval_t_fix =
+ *     Fix_eval_t.fixv (fun f ->
+ *         { call=
+ *             (fun (type a) (sym : a Ieval_t.i) ->
+ *               (match sym with Ieval_t.T -> eval_t_0 f : a) ) } )
+ *
+ *   let t =
+ *     { Utils.gcata= gcata_t
+ *     }
+ * end
+ *
+ * module B = struct
+ *   type 'b t = [`B]
+ *
+ *   class virtual ['ib, 'b, 'sb, 'inh, 'extra, 'syn] t_t =
+ *     object
+ *       method virtual c_B : 'inh -> 'b t -> 'syn
+ *     end
+ *
+ *   let gcata_t tr inh subj = match subj with `B -> tr#c_B inh subj
+ *
+ *   module type IndexResult2_t = sig
+ *     type ('a, 'b) result
+ *
+ *     type 'dummy0 i = T : (('a, 'a2) result -> ('a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Index2_t (S : sig
+ *     type ('a, 'b) result
+ *   end) =
+ *   struct
+ *     type ('a, 'b) result = ('a, 'b) S.result
+ *
+ *     type 'dummy0 i = T : (('a, 'a2) result -> ('a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Ieval_t = Index2_t (struct
+ *     type ('a, 'b) result = unit -> 'a -> 'b
+ *   end)
+ *
+ *   module Fix_eval_t = FixV (Ieval_t)
+ *
+ *   class ['b, 'b_2, 'env, 'extra_t] eval_t_t _ fb fself_t =
+ *     object
+ *       inherit ['env, 'b, 'b_2, 'env, 'extra_t, 'extra_t] t_t
+ *
+ *       method c_B inh___002_ _ = `B
+ *     end
+ *
+ *   let eval_t_0 call fa inh0 subj =
+ *     Utils.fix (fun fself ->  gcata_t (new eval_t_t call fa fself)) inh0 subj
+ *
+ *   let eval_t_fix =
+ *     Fix_eval_t.fixv (fun f ->
+ *         { call=
+ *             (fun (type a) (sym : a Ieval_t.i) ->
+ *               (match sym with Ieval_t.T -> eval_t_0 f : a) ) } )
+ *
+ *   let t =
+ *     { Utils.gcata= gcata_t
+ *     }
+ * end
+ *
+ * module Z = struct
+ *   type 'x t = [int A.t | string B.t]
+ *
+ *   class virtual ['ix, 'x, 'sx, 'inh, 'extra, 'syn] t_t =
+ *     object
+ *       inherit [int, int, int, 'inh, 'extra, 'syn] A.t_t
+ *
+ *       inherit [string, string, string, 'inh, 'extra, 'syn] B.t_t
+ *     end
+ *
+ *   let gcata_t tr inh subj =
+ *     match subj with
+ *     | #A.t as subj -> A.gcata_t tr inh subj
+ *     | #B.t as subj -> B.gcata_t tr inh subj
+ *
+ *   module type IndexResult_t = sig
+ *     type 'a result
+ *
+ *     type 'dummy0 i = T : ('a result -> 'a t result) i
+ *   end
+ *
+ *   module Index2_t (S : sig
+ *     type ('a, 'b) result
+ *   end) =
+ *   struct
+ *     type ('a, 'b) result = ('a, 'b) S.result
+ *
+ *     type 'dummy0 i = T : (('a, 'a2) result -> ('a t, 'a2 t) result) i
+ *   end
+ *
+ *   module Ieval_t = Index2_t (struct
+ *     type ('a, 'b) result = unit -> 'a -> 'b
+ *   end)
+ *
+ *   module Fix_eval_t = FixV (Ieval_t)
+ *
+ *   class ['x, 'x_2, 'env, 'extra_t] eval_t_t _ fx fself_t =
+ *     object
+ *       inherit ['env, 'x, 'x_2, 'env, 'extra_t, 'extra_t] t_t
+ *
+ *       inherit
+ *         [int, int, 'env, 'extra_t] A.eval_t_t
+ *           A.eval_t_fix
+ *           (fun inh subj -> eval_int inh subj)
+ *           (fun inh subj -> match subj with #A.t as subj -> fself_t inh subj)
+ *
+ *       inherit
+ *         [string, string, 'env, 'extra_t] B.eval_t_t
+ *           B.eval_t_fix
+ *           (fun inh subj -> eval_string inh subj)
+ *           (fun inh subj -> match subj with #B.t as subj -> fself_t inh subj)
+ *     end
+ *
+ *   let eval_t_0 call fa inh0 subj =
+ *     Utils.fix (fun fself ->  gcata_t (new eval_t_t call fa fself)) inh0 subj
+ *
+ *   let eval_t_fix =
+ *     Fix_eval_t.fixv (fun f ->
+ *         { call=
+ *             (fun (type a) (sym : a Ieval_t.i) ->
+ *               (match sym with Ieval_t.T -> eval_t_0 f : a) ) } )
+ *
+ *   let t =
+ *     { Utils.gcata= gcata_t }
+ * end
+ *
+ * end *)
+
+
+
+module WTF = struct
+
+type 'a s = SS of 'a
+and t = int s
+and u = float s
+
+let gcata_s tr inh = function SS a -> tr#c_SS inh a
+let gcata_t = gcata_s
+let gcata_u = gcata_s
+
+(* should be generated *)
+module type IndexResult = sig
+  type _ result
+  type _ i =
+    | S : ('a result -> 'a s result) i
+    | T : t result i
+    | U : u result i
+end
+module Index (S: sig type 'a result end) =
+struct
+  type 'a i =
+    | S : ('a S.result -> 'a s S.result) i
+    | T : t S.result i
+    | U : u S.result i
+end
+
+(* should be generated *)
+(* module type IndexResult2 = sig
+ *   type (_,_) result
+ *   type _ i =
+ *     | S : (('a,'b) result -> ('a s,'b s) result) i
+ *     | T : (t,t) result i
+ *     | U : (u,u) result i
+ * end
+ * module Index2 (S : sig type ('a, 'b) result end) = struct
+ *   type ('a,'b) result = ('a,'b) S.result
+ *   type _ i =
+ *     | S : (('a,'b) result -> ('a s,'b s) result) i
+ *     | T : (t,t) result i
+ *     | U : (u,u) result i
+ * end *)
+
+module Show =
+struct
+  module I = Index(struct type 'a result = 'a -> string end)
+  module FixSgmap = FixV(I)
+
+  class ['a] show_s (call: FixSgmap.fn) fa = object
+    method c_SS () (a: 'a) = sprintf "SS (%s)" (fa a)
+  end
+  class ['a] show_t call = object
+    method do_t () x : string = call.FixSgmap.call I.S (sprintf "%d") x
+  end
+  class ['a] show_u call = object
+    method do_u () x = call.FixSgmap.call I.S (sprintf "%f") x
+  end
+  let show0_s call fa s =
+    gcata_s (new show_s call fa) () s
+
+  let show0_t {FixSgmap.call}           = call I.S (sprintf "%d")
+  let show0_u {FixSgmap.call}           = call I.S (sprintf "%f")
+
+  let show = FixSgmap.fixv @@ fun f ->
+   { call = fun (type a) (sym : a I.i) : a -> match sym with
+     | I.S -> show0_s f
+     | I.T -> show0_t f
+     | I.U -> show0_u f }
+
+  let show_s x = show.FixSgmap.call I.S x
+  let show_t x = show.FixSgmap.call I.T x
+  let show_u x = show.FixSgmap.call I.U x
+end
 
 end

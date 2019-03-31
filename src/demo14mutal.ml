@@ -46,10 +46,6 @@ class ['self] show_b_stub for_a for_b ~fself = object
   method c_J ()    = "J"
 end
 
-(* open Higher
- * module A3 = Newtype3(struct type ('a,'b,'c) t = ('a,'b,'c) a_t end) *)
-
-
 type ('inh, 'sa, 'sb, 's, 'sr) typ_for_a =
   { a_func : 'selfa 'r .
                a_trf -> b_trf -> fself:('r a -> 's) ->
@@ -68,13 +64,13 @@ let (a0,b0) =
   )
 
 let myfix (a0,b0) =
-  let rec show_a = { a_trf = fun f a ->
-      gcata_a (a0.a_func show_a show_b (show_a.a_trf f) f) () a
+  let rec trait_a = { a_trf = fun f a ->
+      gcata_a (a0.a_func trait_a trait_b (trait_a.a_trf f) f) () a
     }
-  and     show_b = { b_trf = fun    b ->
-      gcata_b (b0.b_func show_a show_b  show_b.b_trf  ) () b }
+  and     trait_b = { b_trf = fun    b ->
+      gcata_b (b0.b_func trait_a trait_b  trait_b.b_trf  ) () b }
   in
-  (show_a, show_b)
+  (trait_a, trait_b)
 
 let (fix_result_1, fix_result_2) = myfix (a0,b0)
 

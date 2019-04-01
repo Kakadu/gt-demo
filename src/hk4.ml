@@ -106,77 +106,77 @@ let show_b    b = fix_result_2.b_trf    b
  *   () *)
 
 
-(* (\* Reimplementing some stuff *\)
- *
- * class ['a, 'self] show_a_stub2 for_a for_b ~fself fa = object
- *   inherit ['a, 'self] show_a_stub for_a for_b ~fself fa
- *   method! c_A () be = sprintf "A {%a}" (fun () -> for_b.b_trf fa) be
- * end
- *
- * let a0 =
- *   {a_func = (fun tra trb fa subj ->
- *        fix (fun fself ->
- *            (gcata_a (new show_a_stub2 tra trb ~fself fa) )
- *          )
- *          ()
- *          subj
- *       ) }
- *
- * let (fix_result_1, fix_result_2) = myfix (a0,b0)
- *
- * let show_a    s = fix_result_1.a_trf    s
- * let show_b    s = fix_result_2.b_trf    s
- *
- * let _ =
- *   printf "Stage 2 (a reimplemented):\n";
- *   let show_int n = string_of_int n in
- *   printf "%s\n" @@ show_a show_int C;
- *   printf "%s\n" @@ show_a show_int (A (I C));
- *   printf "%s\n" @@ show_b show_int (I (A J));
- *   printf "%s\n" @@ show_b show_int J;
- *   ()
- *
- * (\** gmap *********************************************** *\)
- *
- * class ['r, 'r2, 'self] gmap_a_stub for_a for_b ~fself fa = object
- *   inherit [unit, 'r, 'r2, unit, 'self, 'r2 a] a_t
- *   method c_A () x  = A (for_b.b_trf fa x)
- *   method c_B () x  = B (fa x)
- *   method c_C ()    = C
- * end
- * class ['r, 'r2, 'self] gmap_b_stub for_a for_b ~fself fa = object
- *   inherit [unit, 'r, 'r2, unit, 'self, 'r2 b] b_t
- *   method c_I () a  = I (for_a.a_trf fa a)
- *   method c_J ()    = J
- *   method c_K () x  = K (fa x)
- * end
- *
- * let (gmap_a0, gmap_b0) =
- *   ( {a_func = (fun tra trb fa subj ->
- *        fix (fun fself ->
- *            (gcata_a (new gmap_a_stub tra trb ~fself fa) )
- *          )
- *          ()
- *          subj
- *       ) }
- *   , {b_func = (fun tra trb fa subj ->
- *           (gcata_b (new gmap_b_stub tra trb ~fself:(fun _ -> assert false) fa)
- *              ()
- *              subj)
- *     ) }
- *   )
- *
- * let (fix_result_1, fix_result_2) = myfix (gmap_a0, gmap_b0)
- *
- * (\* extra hacks to skip inherited attribute *\)
- * let gmap_a fa s = fix_result_1.a_trf fa  s
- * let gmap_b    s = fix_result_2.b_trf     s
- *
- * let _ =
- *   let t1 = B "5" in
- *   let t2 = A (I C) in
- *   printf "Stage 2\n";
- *   printf "%s\n" @@ show_a show_string @@ t1;
- *   printf "%s\n" @@ show_a show_int @@ t2;
- *   printf "%s\n" @@ show_a show_string @@ gmap_a id t1;
- *   () *)
+(* Reimplementing some stuff *)
+
+class ['a, 'self] show_a_stub2 for_a for_b ~fself fa = object
+  inherit ['a, 'self] show_a_stub for_a for_b ~fself fa
+  method! c_A () be = sprintf "A {%a}" (fun () -> for_b.b_trf fa) be
+end
+
+let a0 =
+  {a_func = (fun tra trb fa subj ->
+       fix (fun fself ->
+           (gcata_a (new show_a_stub2 tra trb ~fself fa) )
+         )
+         ()
+         subj
+      ) }
+
+let (fix_result_1, fix_result_2) = myfix (a0,b0)
+
+let show_a    s = fix_result_1.a_trf    s
+let show_b    s = fix_result_2.b_trf    s
+
+let _ =
+  printf "Stage 2 (a reimplemented):\n";
+  let show_int n = string_of_int n in
+  printf "%s\n" @@ show_a show_int C;
+  printf "%s\n" @@ show_a show_int (A (I C));
+  printf "%s\n" @@ show_b show_int (I (A J));
+  printf "%s\n" @@ show_b show_int J;
+  ()
+
+(** gmap *********************************************** *)
+
+class ['r, 'r2, 'self] gmap_a_stub for_a for_b ~fself fa = object
+  inherit [unit, 'r, 'r2, unit, 'self, 'r2 a] a_t
+  method c_A () x  = A (for_b.b_trf fa x)
+  method c_B () x  = B (fa x)
+  method c_C ()    = C
+end
+class ['r, 'r2, 'self] gmap_b_stub for_a for_b ~fself fa = object
+  inherit [unit, 'r, 'r2, unit, 'self, 'r2 b] b_t
+  method c_I () a  = I (for_a.a_trf fa a)
+  method c_J ()    = J
+  method c_K () x  = K (fa x)
+end
+
+let (gmap_a0, gmap_b0) =
+  ( {a_func = (fun tra trb fa subj ->
+       fix (fun fself ->
+           (gcata_a (new gmap_a_stub tra trb ~fself fa) )
+         )
+         ()
+         subj
+      ) }
+  , {b_func = (fun tra trb fa subj ->
+          (gcata_b (new gmap_b_stub tra trb ~fself:(fun _ -> assert false) fa)
+             ()
+             subj)
+    ) }
+  )
+
+let (fix_result_1, fix_result_2) = myfix (gmap_a0, gmap_b0)
+
+(* extra hacks to skip inherited attribute *)
+let gmap_a fa s = fix_result_1.a_trf fa  s
+let gmap_b    s = fix_result_2.b_trf     s
+
+let _ =
+  let t1 = B "5" in
+  let t2 = A (I C) in
+  printf "Stage 2\n";
+  printf "%s\n" @@ show_a show_string @@ t1;
+  printf "%s\n" @@ show_a show_int @@ t2;
+  printf "%s\n" @@ show_a show_string @@ gmap_a id t1;
+  ()

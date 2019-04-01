@@ -131,10 +131,10 @@ let gcata_ccc = gcata_a
 class virtual ['ia,'a,'sa, 'inh, 'self, 'syn] ccc_t = object
   inherit ['ia,'a,'sa, 'inh, 'self, 'syn] a_t
 end
-class ['a, 'selfc] show_c fself fa = object 
+class ['a, 'selfc] show_c fself fa = object
   inherit ['a, 'selfc] show_a fself fa
-end    
-let show_c fa c = 
+end
+let show_c fa c =
   fix0 (fun fself -> gcata_ccc (new show_c fself fa) ()) c
 let _ =
   let show_int n = string_of_int n in

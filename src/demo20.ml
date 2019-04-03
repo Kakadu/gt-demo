@@ -106,10 +106,97 @@ module StatefulAB = struct
     method c_J env    = (env,J)
   end
 
-  let gmap_a fa s =
+  let stateful__a fa s =
     (fst @@ fixab (new stateful_a_stub) (new stateful_b_stub)) fa s
 
-  let gmap_b fa s =
+  let stateful__b fa s =
     (snd @@ fixab (new stateful_a_stub) (new stateful_b_stub)) fa s
+
+end
+
+
+module PV = struct
+
+type a = [`A of b | `B of int]
+and  b = [`C of a | `D of string]
+
+let rec gcata_a tr inh = function
+  | `A b -> tr#c_A inh b
+  | `B x -> tr#c_B inh x
+
+let rec gcata_b tr inh = function
+  | `C a -> tr#c_C inh a
+  | `D s -> tr#c_D inh s
+
+class virtual [  'inh, 'self, 'syn ] a_t = object
+  method virtual c_A   : 'inh ->   b -> 'syn
+  method virtual c_B   : 'inh -> int -> 'syn
+end
+class virtual [ 'inh, 'self, 'syn ] b_t = object
+  method virtual c_C   : 'inh ->   a -> 'syn
+  method virtual c_D   : 'inh -> string -> 'syn
+end
+
+type ( 'i, 's) a_trf  =  'i -> a -> 's
+type ( 'i, 's) b_trf  =  'i -> b -> 's
+
+let fixab a0 b0 =
+  Printf.printf "myfix ab\n";
+  let rec trait_a i a = gcata_a (a0 trait_a trait_b trait_a) i a
+  and     trait_b i b = gcata_b (b0 trait_a trait_b trait_b) i b
+  in
+  (trait_a, trait_b)
+
+
+module Show = struct
+
+  class ['self] show_a_stub for_a for_b fself = object
+    inherit [unit, 'self, string] a_t
+    method c_A () be = sprintf "A (%s)" (for_b () be)
+    method c_B () d  = sprintf "B (%d)" d
+  end
+  class ['self] show_b_stub for_a for_b fself = object
+    inherit [ unit, 'self, string] b_t
+    method c_C () a  = sprintf "C (%s)" (for_a () a)
+    method c_D () s  = sprintf "D %s" s
+  end
+
+  let showa0 a b c = Printf.printf "new!\n"; new show_a_stub a b c
+  let showb0 a b c = Printf.printf "new!\n"; new show_b_stub a b c
+
+  let show_a fa s =
+    (fst @@ fixab showa0 showb0) fa s
+
+  let show_b fa s =
+    (snd @@ fixab showa0 showb0) fa s
+
+  let _ = Printf.printf "%s\n" (show_a () (`A (`C (`A (`D "4")))))
+
+end
+
+module Show2 = struct
+  (* class ['a, 'self] show_a_stub for_a for_b fself = object
+   *   inherit [unit, 'self, string] a_t
+   *   method c_A () be = sprintf "A (%s)" (for_b () be)
+   *   method c_B () d  = sprintf "B (%d)" d
+   * end *)
+  class ['self] show_b_stub2 for_a for_b fself = object
+    inherit ['self] Show.show_b_stub for_a for_b fself
+    method c_C () a  = sprintf "new C (%s)" (for_a () a)
+    method c_D () s  = sprintf "new D %s" s
+  end
+
+  let showa0 a b c = Printf.printf "new!\n"; new Show.show_a_stub a b c
+  let showb0 a b c = Printf.printf "new!\n"; new show_b_stub2 a b c
+
+  let show_a fa s =
+    (fst @@ fixab showa0 showb0) fa s
+
+  let show_b fa s =
+    (snd @@ fixab showa0 showb0) fa s
+
+  let _ = Printf.printf "%s\n" (show_a () (`A (`C (`A (`D "4")))))
+
+end
 
 end

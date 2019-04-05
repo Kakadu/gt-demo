@@ -220,20 +220,27 @@ module PV2 = struct
     trait_c
 
   module Show = struct
-    class ['self] show_c_stub for_c fself =
-      (* let show_a () s = PV.Show.(fst @@ fixab ~b0:for_c ()) () s in *)
-      let show_a () s = PV.Show.show_a () s in
+    class ['self] show_c_stub make_clas fself =
+      let show_a () s  =
+        PV.Show.(fst @@ fixab
+                   ~b0:(fun _ b c -> ((make_clas b ()) :> 'self PV.Show.show_b_stub)
+                       ) ()) () s in
       object
         inherit [ 'self] PV.Show.show_b_stub PV.Show.show_a show_a (* PV.Show.show_b *) fself
-        method! c_C () a  = sprintf "new `C (%s)" (PV.Show.show_a () a)
+        method! c_C () a  = sprintf "new `C (%s)" (show_a () a)
         method! c_D () s  = sprintf "new `D %s" s
         method  c_E () s  = sprintf "`E %d" s
       end
 
-    let showc0 a b = Printf.printf "new!\n"; new show_c_stub a b
+    let rec showc0 fself () = Printf.printf "new c0!\n"; new show_c_stub showc0 fself
 
-    let fixc ?(c0=showc0) () = fixc c0
-    let show_c () s = (fixc () ) () s
+    (* let fixc ?(c0=showc0) () = fixc (fun a b -> c0 a b ()) *)
+
+    let show_c () s =
+      let rec trait () s = gcata_c (showc0 trait ()) () s
+      in
+      trait () s
+
 
     let _ = Printf.printf "%s\n" (show_c () (`C (`A (`D "4"))))
   end

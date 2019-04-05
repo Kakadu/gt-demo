@@ -114,7 +114,7 @@ module StatefulAB = struct
 
 end
 
-
+(* ******************************************************************************* *)
 module PV = struct
 
 type a = [`A of b | `B of int]
@@ -164,11 +164,12 @@ module Show = struct
   let showa0 a b c = Printf.printf "new!\n"; new show_a_stub a b c
   let showb0 a b c = Printf.printf "new!\n"; new show_b_stub a b c
 
+  let fixab ?(a0=showa0) ?(b0=showb0) () = fixab a0 b0
   let show_a fa s =
-    (fst @@ fixab showa0 showb0) fa s
+    (fst @@ fixab ()) fa s
 
   let show_b fa s =
-    (snd @@ fixab showa0 showb0) fa s
+    (snd @@ fixab ()) fa s
 
   let _ = Printf.printf "%s\n" (show_a () (`A (`C (`A (`D "4")))))
 
@@ -199,4 +200,41 @@ module Show2 = struct
 
 end
 
+end
+
+module PV2 = struct
+  type c = [ PV.b | `E of int ]
+  let gcata_c tr inh = function
+    | `E n -> tr#c_E inh n
+    | #PV.b as b -> PV.gcata_b tr inh b
+
+  class virtual [ 'inh, 'self, 'syn ] a_t = object
+    inherit [ 'inh, 'self, 'syn ] PV.b_t
+    method virtual c_E   : 'inh -> int -> 'syn
+  end
+
+  let fixc c0 =
+    Printf.printf "myfix c\n";
+    let rec trait_c i a = gcata_c (c0 trait_c trait_c) i a
+    in
+    trait_c
+
+  module Show = struct
+    class ['self] show_c_stub for_c fself =
+      (* let show_a () s = PV.Show.(fst @@ fixab ~b0:for_c ()) () s in *)
+      let show_a () s = PV.Show.show_a () s in
+      object
+        inherit [ 'self] PV.Show.show_b_stub PV.Show.show_a show_a (* PV.Show.show_b *) fself
+        method! c_C () a  = sprintf "new `C (%s)" (PV.Show.show_a () a)
+        method! c_D () s  = sprintf "new `D %s" s
+        method  c_E () s  = sprintf "`E %d" s
+      end
+
+    let showc0 a b = Printf.printf "new!\n"; new show_c_stub a b
+
+    let fixc ?(c0=showc0) () = fixc c0
+    let show_c () s = (fixc () ) () s
+
+    let _ = Printf.printf "%s\n" (show_c () (`C (`A (`D "4"))))
+  end
 end

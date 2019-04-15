@@ -60,15 +60,27 @@
 \usepackage{listings}
 \usepackage{amsmath,amssymb}
 
+% macro to select a scaled-down version of Bera Mono (for instance)
+\makeatletter
+\newcommand\BeraMonottfamily{%
+  \def\fvm@Scale{0.85}% scales the font down
+  \fontfamily{fvm}\selectfont% selects the Bera Mono font
+}
+\makeatother
+
 \def\backtick{\char18}
+\renewcommand{\ttdefault}{cmtt}
 
 \lstdefinelanguage{ocaml}{
-keywords={fresh, conde, let, begin, end, in, match, type, and, fun, function, try, with, when, class,
-object, method, of, rec, nonrec, repeat, until, while, not, do, done, as, val, inherit,
-new, module, sig, deriving, datatype, struct, if, then, else, open, private, virtual, include, @type},
+keywords={fresh, conde, let, begin, end, in, match, type, and, fun, function,
+try, with, when, class, object, method, of, rec, nonrec, repeat, until, 
+while, not, do, done, as, val, inherit, new, module, sig, deriving, datatype,
+struct, if, then, else, open, private, virtual, include, @type
+},
 sensitive=true,
-commentstyle=\small\itshape\ttfamily,
-keywordstyle=\ttfamily\underbar,
+basicstyle=\ttfamily,
+commentstyle=\itshape\ttfamily,
+keywordstyle=\bfseries\ttfamily\bfseries\underbar,
 identifierstyle=\ttfamily,
 basewidth={0.5em,0.5em},
 columns=fixed,
@@ -88,8 +100,8 @@ language=ocaml
 }
 \let\listinline\lstinline
 
-\usepackage{minted}
-\usemintedstyle{rrt}
+% \usepackage{minted}
+% \usemintedstyle{rrt}
 
 \begin{document}
 
@@ -267,23 +279,24 @@ type ($a_1$, ..., $a_n$) typename =
   | type_ as 'identifier
   (* constructors of algebraic types *)
   | $C_1$ of $t_{11}$ * ... * $t_{1 n_1}$ | ... | $C_k$ of $t_{k1}$ * ... * $t_{k n_k}$
+  (* constructors with records *)
+  | $C_1$ of { $f_{11}$=$t_{11}$; ...; $e_{1 n_1}$=$t_{1 n_1}$} | ... | $C_k$ of { $f_{k1}$=$t_{k1}$;  ...; $f_{k n_k}$=$t_{k n_k}$ }
   (* tuples can be viewed as specific predefined constructors *)
   | ($t_1$, ..., $t_k$)
   (* polymorphic variants with concrete constructors  *)
-  | [ `$C_1$ of $t_{11}$ * ... * $t_{1 n_1}$ | ... | `$C_k$ of $t_{k1}$ * ... * $t_{k n_k}$ ] | [ ($t_{1}$,...,$t_{l}$) u ]
+  | [ `$C_1$ of $t_{11}$ * ... * $t_{1 n_1}$ | ... | `$C_k$ of $t_{k1}$ * ... * $t_{k n_k}$ ] 
   (* union of polymorphic variants *)
   | [ ($t_{1}$,...,$t_{l}$) $\tau$ | ... ]
-  (* type abbrevations (a.k.a. type aliases) : application of types to other types *)
+  (* type abbrevations (a.k.a. type aliases, type operators) *)
   | ($t_1$, ..., $t_n$) $\tau$
 \end{lstlisting}
 Current limitations:
 \begin{itemize}
- \item Using object types, module types and functional types in type declarations.
- \item Constraints on type declrations are not being taken to account
+ \item Only regular type definitions.
+ \item Constraints on type declarations are not being taken to account.
  \item GADTs are treated as simple algebraic data types.
- \item ADT with record constructors.
- \item Generated code will typecheck only for \textbf{regular} type declarations.
- \item Type declarations with \verb=nonrec= keyword.
+ \item Using object types, module types and functional types in type declarations is not supported (but hackable).
+ \item \verb=nonrec= keyword is not taken to account.
 \end{itemize}
 
 
@@ -314,7 +327,7 @@ Current limitations:
  то, дополнительно необходимо иметь класс трансформации для типа
  $\tau$.
 
-Все классы трансформации принимают (n+1) параметров: одна функция трансформации рекрсивного вхождения объявления типа 
+Все классы трансформации принимают (n+1) параметров: одна функция трансформации рекурсивного вхождения объявления типа 
 (здесь мы сужаем множество поддерживаемых определений типов только до регулярных) и функции-трансформации для типовых параметров. Для процесса
 генерации является существенным, чтобы все классы, определяющие трансформацию, имели сходную сигнатуру, выводимую только из имени типа 
 и количества его параметров. Поэтому, функцию-трансформацию рекурсивного вхождения типа нельзя опустить для нерекурсивных типов.
@@ -334,61 +347,122 @@ Current limitations:
 сигнатуры функции-трансформации для трасформации вида \verb=gmap= (a.k.a. functor).
 
 \section{Что конкретно генерируется для разных объявлений типов}
-\lstinline{type ($a_1$, ..., $a_n$) t = ....}
+
+\subsection{Одиночные объявления (без взаимной рекурсии) }
+В этом разделе описывается результат генерации кода для одиночных (возможно, рекурсивных) определений типов
+
+\lstinline{type ($a_1$, ..., $a_n$) $\tau$ = $\xi$}
+
 
 \begin{itemize}
-  \item В \textit{interface class} для типа \lstinline{t} методы соответсвуют конструкторам агебраического типа или полиморфного варианта. 
+  \item В \textit{interface class} для типа \lstinline{$\tau$} методы соответствуют конструкторам алгебраического типа или полиморфного варианта. 
   \begin{lstlisting}
-  class virtual [ $class~arguments$ ] class_t = object
-    (* either *)
+  class virtual [ $class~type~params$ ] class_t = object
       (** for every constructor (of normal or poly variant) called
         * $C_i$ of $t_{i1}$ * ... * $t_{i n_1}$
         *)
-      (* method virtual c_$C_i$: 'inh -> $t_{i1}$ -> ... ->  $t_{in}$ -> 'syn*)
-      method virtual c_$C_i$: 'inh -> $curried~constructor~arguments$ -> 'syn
+      (* method virtual c_$C_i$: 'inh -> $\xi$ -> $t_{i1}$ -> ... -> $t_{in}$ -> 'syn *)
+      method virtual c_$C_i$: 'inh -> $\xi$ -> $curried~constructor~arguments$ -> 'syn
   end
   \end{lstlisting}
-  Для type abbrevation \lstinline{type ($a_1$, ..., $a_n$) t = ($t_1$, ..., $t_n$) $\tau$} используется наследование, чтобы объявить класс : 
+  Для type abbrevation's \lstinline{type ($a_1$, ..., $a_n$) $\tau$ = ($t_1$, ..., $t_n$) ab} 
+  используется наследование, чтобы объявить класс : 
   \begin{lstlisting}
-  class virtual [ $class~arguments$ ] class_t = object
-    inherit [$with~application\!-\!specific~arguments$] class_$\tau$
+  class virtual [ $class~arguments$ ] class_$\tau$ = object
+    inherit [$with~application\!-\!specific~arguments$] class_ab
   end
   \end{lstlisting}
 
-  For every $n$-parametric type ($n>=0$) there are $3*n+2+1$ \textit{class arguments}. They are:
+  For every $n$-parametric type ($n>=0$) there are $3*n+2+1$ \emph{class arguments}. They are:
     \begin{center}
-        $\overline{'a_i, 'ia_i, 'sa_i}$, $'inh$, $'syn$,$'extra$
+        $\overline{'ia_i, 'a_i, 'sa_i}$, $'inh$, $'extra$, $'syn$
     \end{center}
   where \begin{itemize}
-          \item $a_i$ is an $i$-th paramter of the type being processed;
-          \item $sa_i$ is a synthesized attribute for type parameter $a_i$;
-          \item $ia_i$ is an inherited attribute for type parameter $a_i$;
+          \item $'a_i$ is an $i$-th parameter of the type being processed;
+          \item $'sa_i$ is a synthesized attribute for type parameter $a_i$;
+          \item $'ia_i$ is an inherited attribute for type parameter $a_i$;
+          \item $'inh$ is an inherited attribute for whole type $\xi$;
+          \item $'extra$ -- если сейчас генерируется код для полиморфного варианта, то это открытый тип для $\xi$. Иначе, данный типовый параметр не используется по существу.
           \item $'syn$ is a synthesized attribute for the whole type.
-          \item $'extra$ это открытый полиморфный вариант, который сейчас объявляется, либо wildcard для остальных объявлений типов.
   \end{itemize}
   
-  Although there some differences for type declarations that involve mutal recursion.
+  \paragraph{}
+  N.B. Although there some differences for type declarations that involve mutual recursion.
   
-  \item \textit{Generic catamorphism} $gcata_t$ (для объявления типа $t$) который принимает значение типа $t$ и применяет трансформацию. It is defined using pattern-matching for the variant types or as a composition with generic catamorphism $gcata_\tau$ if type $t$ is constructed as an application of type $\tau$.
-  \item Для каждого вида трансформации $tr$ concrete класс с реализацией этой трансформации:
+  \item \emph{Generic catamorphism} (для объявления типа $\tau$) под названием $gcata_\tau$, который принимает объект-трансформацию, начальный наследуемый атрибут $i$, значение типа $\tau$ и применяет трансформацию над $i$ и значением типа $\tau$. It is defined using pattern-matching for the variant types or as a composition with generic catamorphism $gcata_\tau$ if type $t$ is constructed as an application of type $\tau$.
+  \item Для каждого вида трансформации $trait$ генерируется не виртуальный класс с реализацией этой трансформации:
 
   \begin{lstlisting}
-  class [ $tr~class~arguments$ ] $tr$_t $self$ $f\!a_1$ ... $f\!a_n$ = object
+  class [ $trait~class~arguments$ ] $trait$_$\xi$_t $\overline{f\!a_i}$ $f\!self$ = object
     inherit [ $inherited~class~arguments$ ] class_t
     (* implementation of virtual methods if any *)
   end
   \end{lstlisting}
   where \begin{itemize}
-          \item transformation $self$ is a current transformation; class is defined in open recursion style and will receive it after tying the knot
-          \item $f\!a_i$ of type \lstinline{$ia_i$ -> $a_i$ -> $sa_i$} are transformation functions for type parameters
-          \item $sa_i$ is a synthesized attribute for type parameter $a_i$
-          \item $ia_i$ is an inherited attribute for type parameter $a_i$
-          \item $'syn$ is a synthesized attribute for the whole type
+          \item transformation $f\!self$ is a current transformation; class is defined in open recursion style and will receive it after tying the knot
+          \item $f\!a_i$ of type \lstinline{$ia_i$ -> $a_i$ -> $sa_i$} are transformation functions for type parameters;
+          \item $'sa_i$ is a synthesized attribute for type parameter $a_i$;
+          \item $'ia_i$ is an inherited attribute for type parameter $a_i$;
+          \item $'syn$ is a synthesized attribute for the whole type.
   \end{itemize}
 % \bigskip
 %   TODO by Kakadu: I have strong feeling that $fa_i$ should have type \lstinline{$ia_i$ -> $a_i$ -> $sa_i$}. Motivating example will be a formatter plugin with \lstinline{'inh=== '$ia_i$ === Format.formatter} and \lstinline{'syn==='$sa_i$ === unit}.
-  \item For every transformation method $tr$ a function which takes transformations $f\!a_i$ for every type parameter $a_i$, and a value of type $t$ that will be transformed
+  \item For every transformation $trait$ a \emph{transformation function} is being generated. It takes transformations $f\!a_i$ for every type parameter $a_i$, inherited attribute $inh$, a value of type $t$ that will be transformed and runts transformation specific for current trait.
+  \begin{lstlisting}
+let nonrec trait_$\tau$ $\overline{f\!a_i}$ inh subj =
+  GT.transform_gc gcata_tree (new trait_$\tau$_t $\overline{f\!a_i}$) inh subj
+  \end{lstlisting}  
 \end{itemize}
+
+\subsection{Взаимно рекурсивные определения}
+
+Синтаксис взаимно рекурсивных определений:
+\begin{lstlisting}
+type ($a_{11}$, ..., $a_{m_1}$) $\tau_1$ = ... 
+and  ($a_{21}$, ..., $a_{m_2}$) $\tau_2$ = ... 
+...
+and  ($a_{n1}$, ..., $a_{m_n}$) $\tau_n$ = ...
+\end{lstlisting}
+
+При генерации кода для взаимно рекурсивных определений типов происходит несколько усложнений по сравнению со случаем одиночных определений.
+
+\begin{enumerate}
+ \item Классу, реализующему трансформацию для типа $\tau_i$, необходимо иметь доступ к функциям-трансформацией типов $\tau_1,...,\tau_n$, объявленных взаимно рекурсивно с этим типом $\tau_i$. Таким образом, классы, реализующие трансформацию $trait$ для типа $\xi_i$, имеют дополнительные параметры ($f\!or\tau_{i}$) конструктора по сравнению с одиночным определением типа. Эти классы также имеют в имени суффикс $\_stub$.
+ \begin{lstlisting}
+ class [$class~type~params$] show_a_t_stub $\overline{for\tau_{i}}$ $\overline{f\!a_i}$ fself = 
+   object  ...  end
+\end{lstlisting}
+
+ \item По взаимно рекурсивным определениям генерируется неподвижная точка, которая принимает функции для конструирования объектов-экземпляров классов $trait\_\tau_i\_t\_stub$, создает соответствующие объекты и возвращает $n$ функций-трансформаций для типов $\tau_i$ ($i=1..n$).
+
+\begin{lstlisting}
+let fix_a $\overline{c_{i}^{init}}$ =
+  let rec $trait_1$ $\overline{f_{m1}}$ i s = gcata_a ($c_{1}^{init}$ $\overline{trait_i}$ $\overline{f_{m1}}$ $trait_1$) i s
+  ...
+  and     $trait_n$ $\overline{f_{mn}}$ i s = gcata_b ($c_{n}^{init}$ $\overline{trait_i}$ $\overline{f_{mn}}$ $trait_n$) i s 
+  in
+  $trait_1$, ..., $trait_1$
+\end{lstlisting}
+ 
+ \item Генерируется $n$ функций-трансформаций для типов $\tau_i$ с сигнатурами аналогичными одиночному случаю. Телами этих функций являются соответствующие вызовы неподвижной точки.
+\begin{lstlisting}
+let trait_$\tau_i$ eta = 
+   let ($f_1$, ..., $f_i$, ..., $f_n$) = 
+     fix_a (new trait_$\tau_1$_t_stub) ... (new trait_$\tau_n$_t_stub) in
+   $f_i$ eta
+\end{lstlisting} 
+
+ \item Генерируются $n$ классов, реализующих трансформацию вида $trait$ для типов $\tau_i$. Они получаются путём специализации 
+ классов, построенных в пункте 2, функциями-трансформациями из шага 3.
+ \begin{lstlisting}
+class [$class~type~params$] trait_$\tau_i$_t $\overline{f\!a_i}$ fself = object 
+  inherit [$class~type~params$] trait_$\tau_i$_t_stub $\overline{trait\_\tau_i}$ $\overline{f\!a_i}$ fself
+end
+\end{lstlisting} 
+По типу, полученного на данном шаге класса, невозможно понять, являлся ли он частью какого-то взаимно-рекурсивного набора типов или
+нет, т.е. типы генерируемых классов выглядят единообразно. Следовательно, его можно безопасно использовать в остальной части программы, если он будет встречаться в других объявлениях типов.
+\end{enumerate}
+
 
 \section{Construction blocks for a transformation function}
 A class declaration for transformation method requires transformations of for parameters of type $(a_1,...,a_n) t$ that is being processed; these transformation functions will be passed as arguments of class's constructor.

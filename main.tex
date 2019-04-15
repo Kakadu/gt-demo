@@ -70,6 +70,8 @@
 
 \def\backtick{\char18}
 \renewcommand{\ttdefault}{cmtt}
+% \renewcommand{\ttdefault}{lmtt}
+\newcommand*{\ttfamilywithbold}{\fontfamily{cmuntb}\selectfont}
 
 \lstdefinelanguage{ocaml}{
 keywords={fresh, conde, let, begin, end, in, match, type, and, fun, function,
@@ -81,6 +83,7 @@ sensitive=true,
 basicstyle=\ttfamily,
 commentstyle=\itshape\ttfamily,
 keywordstyle=\bfseries\ttfamily\bfseries\underbar,
+% keywordstyle=\ttfamilywithbold\underbar,
 identifierstyle=\ttfamily,
 basewidth={0.5em,0.5em},
 columns=fixed,
@@ -358,11 +361,7 @@ Current limitations:
   \item В \textit{interface class} для типа \lstinline{$\tau$} методы соответствуют конструкторам алгебраического типа или полиморфного варианта. 
   \begin{lstlisting}
   class virtual [ $class~type~params$ ] class_t = object
-      (** for every constructor (of normal or poly variant) called
-        * $C_i$ of $t_{i1}$ * ... * $t_{i n_1}$
-        *)
-      (* method virtual c_$C_i$: 'inh -> $\xi$ -> $t_{i1}$ -> ... -> $t_{in}$ -> 'syn *)
-      method virtual c_$C_i$: 'inh -> $\xi$ -> $curried~constructor~arguments$ -> 'syn
+      ...
   end
   \end{lstlisting}
   Для type abbrevation's \lstinline{type ($a_1$, ..., $a_n$) $\tau$ = ($t_1$, ..., $t_n$) ab} 
@@ -465,44 +464,81 @@ end
 
 
 \section{Construction blocks for a transformation function}
-A class declaration for transformation method requires transformations of for parameters of type $(a_1,...,a_n) t$ that is being processed; these transformation functions will be passed as arguments of class's constructor.
+A class declaration for transformation trait of of type $(a_1,...,a_n) t$ requires transformations of type parameters $a_i$; these transformation functions will be passed as arguments of class's constructor $trait\_t\_t$.
 
 For all types that was used in declaration of type $t$ we suppose that transformation functions are present in the scope where the type $t$ is declared. As we declare class for transformation object just after type declaration, these functions will be in scope of type declaration too.
 
-For recursive type declarations it is required to call a transformation function for this type inside the class that represents a transformation and will be used to get this function. OCaml language doesn't allow declaring mutally recusive functions and classes, so we break the recursion by explicitly passing self-transformation as first of constructor's arguments. More precisely, if we have a recursive type 
+For recursive type declaration it is required to call a transformation function for this type inside the class that represents a transformation and will be used to construct this transformations function. OCaml language doesn't allow declaring mutually recusive functions and classes, so we break the recursion by explicitly passing self-transformation as one of constructor's arguments and tieing the knot later. 
 
-\begin{lstlisting}
-type ('a, 'b) alist = ...
-type 'a list = ('a, 'a list) alist
-
-class ['a, 'b] show_alist : 'self -> (unit -> 'a -> string) ->
-                                      (unit -> 'b -> string) ->
-  object
-    method c_Cons : unit -> 'a -> 'b -> string
-    method c_Nil  : unit -> string
-  end
-\end{lstlisting}
-
-we add extra constructor argument \lstinline{self} to the declaration of class
-\begin{lstlisting}
-class ['a] show_list self fa = object
-  inherit ['a, unit, string, unit, string] class_list
-  inherit ['a, 'a list] show_alist "anything" fa self
-end
-\end{lstlisting}
-and use this function to specify a transformation of second argument during instantiation of the class \lstinline{show_alist}.
+% More precisely, if we have a recursive type 
+% 
+% \begin{lstlisting}
+% type ('a, 'b) alist = ...
+% type 'a list = ('a, 'a list) alist
+% 
+% class ['a, 'b] show_alist : 'self -> (unit -> 'a -> string) ->
+%                                       (unit -> 'b -> string) ->
+%   object
+%     method c_Cons : unit -> 'a -> 'b -> string
+%     method c_Nil  : unit -> string
+%   end
+% \end{lstlisting}
+% 
+% we add extra constructor argument \lstinline{self} to the declaration of class
+% \begin{lstlisting}
+% class ['a] show_list self fa = object
+%   inherit ['a, unit, string, unit, string] class_list
+%   inherit ['a, 'a list] show_alist "anything" fa self
+% end
+% \end{lstlisting}
+% and use this function to specify a transformation of second argument during instantiation of the class \lstinline{show_alist}.
 
 % \textbf{Note}. This \lstinline{self} argument is not admissable for nonrecursive types because we instantiate the class \lstinline{show_alist} by looking \textit{only} on application \lstinline{('a,'a list) alist} of this type in the definition of the type \lstinline{'a list}. This means that we know nothing about recursivity of the type \lstinline{('a,'b) alist} during the generation of transformations for the type \lstinline{'a list}.
 % 
 % This remark brings some complications when dealing with mutally recursive types \lstinline{$t_1$},...,\lstinline{$t_n$} where we need to declare two classes per every pair of type $t_i$ and transformation \lstinline{trans}. The first class \lstinline{trans_stub_$t_i$} for type \lstinline{$t_i$} will have $n-1$ extra constructor parameters for functional transformers that process types declared with \lstinline{$t_i$} recursively. Using this classes we can declare $n$ transformation functions for every type $t_i$. We abuse mutal recursion to make this transformation functions have the same interface that transformation functions for non-recursive types have. After declaring transformation functions we can declare transformation classes \lstinline{trans_$t_i$} with desired interface by partially applying constructors of \lstinline{trans_stub_$t_i$} to \lstinline{n-1} transformation functions.
   
-For an example with mutal recursion see \href{https://github.com/Kakadu/gt-demo/blob/master/src/demo05mutal.ml}{demo05} in the repository.
+% For an example with mutal recursion see \href{https://github.com/Kakadu/gt-demo/blob/master/src/demo05mutal.ml}{demo05} in the repository.
+
+\section{About methods inside trait class (algebraic and records)}
+\label{sec:methods}
+
+Let us have a declaration
+\begin{lstlisting}
+type ($a_1$,...,$a_m$) $\tau$ = 
+  type nonrec? ($a_1$, ..., $a_k$) typename =
+    | $C_1$ of $t_{11}$ * ... * $t_{1n_1}$
+    | $C_2$ of $t_{21}$ * ... * $t_{2n_2}$
+    | ...
+    | $C_m$ of $t_{m1}$ * ... *$t_{mn_m}$
+\end{lstlisting}
+In the interface class every constructor $C_i$ of algebraic data type is mapped to a single method of the class called $c\_C_i$ (lowercase c from ``constructor``). Each methods receives $2+n_1$ arguments: inherited attribute for a value of type $(...) \tau$, the value that is being transformed and $n_1$ other paramters that correspond to arguments of the constructor $C_i$. The same scheme is used for polymorphic variant types. Pitfalls related to polymorphic variants are described in \autoref{sec:polypitfalls}.
+
+\begin{lstlisting}
+class virtual [ $class~type~params$ ] class_t = object
+  method virtual c_$C_i$: 'inh -> ($a_1$,...,$a_m$) $\tau$ -> $\overline{t_{in_i}}$ -> 'syn
+end
+\end{lstlisting}
+
+Record types have essentially one (implicit) constructor, so only one method is being generated. Only two arguments are present because fields of the record are accessible using record pattern matching syntax
+\begin{lstlisting}
+type ($a_1$,...,$a_m$) $\tau$ = { $field_1$ : $typ_1$; ...; $field_n$ : $typ_n$  }
+class virtual [ $class~type~params$ ] class_t = object
+  method virtual do_$\tau$: 'inh -> ($a_1$,...,$a_m$) $\tau$ -> 'syn
+end
+\end{lstlisting}
+
+\section{Polymorphic variant pitfalls}
+\label{sec:polypitfalls}
+
+\section{Issues with \listinline=nonrec= keyword}
+\label{sec:nonrecpitfalls}
 
 \section{Creating transformations for type aliases}
+\label{sec:typealiases}
 Let us have
 \begin{lstlisting}
 type ($a_1$,...,$a_m$)$\tau$ = ...
-class virtual [$\overline{'a_i,'sa_i,'ia_i}$, $'inh$, $'syn$] class_$\tau$ = object .. end
+class virtual [$\overline{'a_i,'sa_i,'ia_i}$, $'inh$, $'self$, $'syn$] class_$\tau$ = object .. end
 \end{lstlisting}
 and want to generate transformations for the type
 \begin{lstlisting}
@@ -512,13 +548,13 @@ which is a \textit{type alias} of type $\tau$ with $m$ type arguments $b_1$...$b
 
 Values of type $t$ can be constructed using the constructors from type $\tau$, so the generic catamorphism will be the same:
 \begin{lstlisting}
-let rec gcata_t tr inh x = gcata_$\tau$ tr inh x
+let nonrec gcata_t tr inh x = gcata_$\tau$ tr inh x
 \end{lstlisting}
 Where \lstinline{tr} is a transformation object, \lstinline{inh} is an initial inherited attribute and \lstinline{x} is the value being transformed.
 
-Implementation of an interface class for \lstinline{t} is just an inheritance of  $\tau$'s interface class with right type parameters and arguments. We assume below that all types used on right hand side of the declaration of type \lstinline{t} are available in the scope where we declare a class, although it could be not true (see \autoref{chap:pitfalls} for details). The $\tau$'s interface class has a structure like
+Implementation of an interface class for \lstinline{t} is just an inheritance of  $\tau$'s interface class with right type parameters and arguments. We assume below that all types used on right hand side of the declaration of type \lstinline{t} are available in the scope where we declare a class, although it could be not true (see \autoref{sec:nonrecpitfalls} for details). The $\tau$'s interface class has a structure like
 \begin{lstlisting}
-class [$\overline{'a_i,'sa_i,'ia_i}$, $'inh$, $'syn$] class_$\tau$ = object..end
+class [$\overline{'a_i,'sa_i,'ia_i}$, $'inh$, $'self$, $'syn$] class_$\tau$ = object ... end
 \end{lstlisting}
 and derived interface class will have these implementation
 % \begin{lstlisting}
@@ -530,23 +566,26 @@ and derived interface class will have these implementation
 % end
 % \end{lstlisting}
 \begin{lstlisting}
-class [$\overline{'a_i,'sa_i,'ia_i}$, $'inh$, $'syn$] class_$t$ = object
-    inherit [ (3*m) type parameters, 'inh, 'syn] class_$\tau$ 
-      transformation function for self
+class [$\overline{'a_i,'sa_i,'ia_i}$, $'inh$,  $'self$, $'syn$] class_$t$ = object
+    inherit [ (3*m) type parameters, $'inh$,  $'self$, $'syn$] class_$\tau$ 
+      $m ~transformation ~functions~for~type~parameters$
       ...
-      m transformation functions for type parameters
+      $transformation ~function ~for ~self$
 end
 \end{lstlisting}
-Let's deal with type parameters which are: \lstinline{m} normal type parameters, \lstinline{m} types of inherited attributes, \lstinline{m} types of synthesized attributes. 
+Let's deal with type parameters which are: 
+\lstinline{m} types of inherited attributes, 
+\lstinline{m} normal type parameters,
+\lstinline{m} types of synthesized attributes. 
 \begin{itemize}
+ \item Every $i$-th inherited type parameter is a $b_i$ where every $a_i$ is replaced by the type of inherited attribute of type parameter $a_i$:  $b_i['ia_i \gets \!'a_i]$.
  \item Every $i$-th normal type paramater is just a type which was used as $i$-th argument of $\tau$ in $t$ declaration, i.e. $b_i$.
- \item Every $i$-th inherited type parameter is a $b_i$ where every $a_i$ is replaced by associated type inherited attribute:  $b_i['ia_i \gets \!'a_i]$.
- \item The same logic is applied to synthesized attributes: $b_i['sa_i \gets \!'a_i]$.
+ \item Synthesized attributes are dealt in the same manner as inhnerited ones: $b_i['sa_i \gets \!'a_i]$.
 \end{itemize}
 We are also able to construct transformation functions for every $b_i$: 
 \begin{itemize}
  \item For all named types we suppose that good transformation function with right arity is in scope.
- \item For allpolymorphic type variables we will use transformation function passed as constructor's arguments for this class.
+ \item For all polymorphic type variables we will use transformation function passed as constructor's arguments for this class.
  \item There is no polymorphic type parameters that doesn't have transformation function because it contradicts typechecking process of type declaration because Haskell-style existentional types has another syntax in OCaml.
 \end{itemize}
 

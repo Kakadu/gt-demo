@@ -115,7 +115,37 @@ open Printf
  * end *)
 
 (* ******************************************************************************* *)
-module PV = struct
+module PV: sig
+  type a = [ `A of b | `B of int ]
+  and b = [ `C of a | `D of string ]
+  val gcata_a :
+    < c_A : 'a -> ([< `A of 'c | `B of 'd ] as 'b) -> 'c -> 'e;
+      c_B : 'a -> 'b -> 'd -> 'e; .. > ->
+    'a -> 'b -> 'e
+  val gcata_b :
+    < c_C : 'a -> ([< `C of 'c | `D of 'd ] as 'b) -> 'c -> 'e;
+      c_D : 'a -> 'b -> 'd -> 'e; .. > ->
+    'a -> 'b -> 'e
+  class virtual ['inh, 'self, 'syn] a_t :
+    object
+      method virtual c_A : 'inh -> 'self -> b -> 'syn
+      method virtual c_B : 'inh -> 'self -> int -> 'syn
+    end
+  class virtual ['inh, 'self, 'syn] b_t :
+    object
+      method virtual c_C : 'inh -> 'self -> a -> 'syn
+      method virtual c_D : 'inh -> 'self -> string -> 'syn
+    end
+  type ('i, 's) a_trf = 'i -> a -> 's
+  type ('i, 's) b_trf = 'i -> b -> 's
+  val fixab :
+    (('a -> ([< a ] as 'b) -> 'e) *
+     ('f -> ([< b ] as 'c) -> 'j) ->
+     ('a -> 'b -> 'e) -> ('a, 'b, 'e) #a_t) ->
+    (('a -> 'b -> 'e) * ('f -> 'c -> 'j) ->
+     ('f -> 'c -> 'j) -> ('f, 'c, 'j) #b_t) ->
+    ('a -> 'b -> 'e) * ('f -> 'c -> 'j)
+end = struct
 
 type a = [`A of b | `B of int]
 and  b = [`C of a | `D of string]
@@ -142,16 +172,16 @@ end
 type ( 'i, 's) a_trf  =  'i -> a -> 's
 type ( 'i, 's) b_trf  =  'i -> b -> 's
 
-let fixab a0 b0 =
+let fixab  = fun a0 b0 ->
   Printf.printf "myfix ab\n";
   let rec trait_a i a = gcata_a (a0 (trait_a, trait_b) trait_a) i a
   and     trait_b i b = gcata_b (b0 (trait_a, trait_b) trait_b) i b
   in
   (trait_a, trait_b)
-
+end
 
 module Show = struct
-
+  open PV
   class ['self] show_a_stub (for_a,for_b) fself = object
     inherit [unit, 'self, string] a_t
     constraint 'self = [> a ] as 'self
@@ -175,16 +205,12 @@ module Show = struct
   let show_b fa s =
     (snd @@ fixab ()) fa s
 
-  let _ = Printf.printf "%s\n" (show_a () (`A (`C (`A (`D "4")))))
 
 end
 
 module Show2 = struct
-  (* class ['a, 'self] show_a_stub for_a for_b fself = object
-   *   inherit [unit, 'self, string] a_t
-   *   method c_A () be = sprintf "A (%s)" (for_b () be)
-   *   method c_B () d  = sprintf "B (%d)" d
-   * end *)
+  open PV
+
   class ['self] show_b_stub2 (for_a,for_b) fself = object
     inherit ['self] Show.show_b_stub (for_a,for_b) fself
     method c_C () _ a  = sprintf "new C (%s)" (for_a () a)
@@ -200,11 +226,11 @@ module Show2 = struct
   let show_b fa s =
     (snd @@ fixab showa0 showb0) fa s
 
-  let _ = Printf.printf "%s\n" (show_a () (`A (`C (`A (`D "4")))))
+  (* let _ = Printf.printf "%s\n" (show_a () (`A (`C (`A (`D "4"))))) *)
 
 end
 
-end
+
 
 module PV2 = struct
   type c = [ PV.b | `E of int ]
@@ -217,25 +243,18 @@ module PV2 = struct
     method virtual c_E   : 'inh -> c -> int -> 'syn
   end
 
-  (* let fixc c0 =
-   *   Printf.printf "myfix c\n";
-   *   let rec trait_c i a = gcata_c (c0 trait_c trait_c) i a
-   *   in
-   *   trait_c *)
-
-  (* let (_:int) = fixab PV.Show.showa0 *)
-
   module Show = struct
     class ['self] show_c_stub make_clas fself =
       let show_a2,show_b2  =
         PV.fixab
-          PV.Show.showa0
-          (fun b c -> ((make_clas c ()) :> _ PV.Show.show_b_stub) )
+          Show.showa0
+          (fun _ _ ->
+             ((make_clas fself ()) :> _ Show.show_b_stub)
+          )
       in
       object
         inherit [unit, 'self, string] c_t
-        (* constraint 'self = [> c ]  as 'self *)
-        inherit [ 'self] PV.Show.show_b_stub (show_a2,show_b2)
+        inherit [ PV.b ] Show.show_b_stub (show_a2,show_b2)
             (fun inh -> function (#PV.b as x) -> fself inh x)
         method! c_C () _ a = sprintf "new `C (%s)" (show_a2 () a)
         method! c_D () _ s = sprintf "new `D %s" s
@@ -243,10 +262,6 @@ module PV2 = struct
       end
 
     let rec showc0 fself () = Printf.printf "new c0!\n"; new show_c_stub showc0 fself
-
-    (* let fixc ?(c0=showc0) () = fixc (fun a b -> c0 a b ()) *)
-
-    let (_: (unit -> PV.b -> string) -> c -> string) = fun self -> gcata_c (showc0 self ()) ()
 
     let show_c () s =
       let rec trait () s = gcata_c (showc0 trait ()) () s

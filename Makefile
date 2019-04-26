@@ -15,6 +15,7 @@ all:
 		src/demo16modules.native \
 		src/demo80onj.native \
  		src/demo20.native \
+ 		src/hashcons.native \
  #		src/demo18irr.native \
  #		src/demo19.native \
  #		src/demo17.native \

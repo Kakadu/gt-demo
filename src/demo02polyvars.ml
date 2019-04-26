@@ -155,7 +155,7 @@ end = struct
               , unit, 'b, 'b2
               , unit, 'self, 'self
               ] class_pv_ext
-      constraint 'self = [> ('a2,'b2) pv_ext ]
+      (* constraint 'self = [> ('a2,'b2) pv_ext ] *)
       inherit ['a, 'a2, 'b, 'b2, 'self ] gmap_pv_t fa fb
           (function #pv as s -> fself s)
       method c_C () _ a =
@@ -220,7 +220,8 @@ module PVExt2 : sig
     ('b -> 'b2) ->
     (('a, 'b) pv_ext2 -> 'extra) ->
     object
-      constraint 'extra = [> ('a2, 'b2) pv_ext2 ]
+      (* constraint 'extra = [> ('a2, 'b2) pv_ext2 ] *)
+      constraint 'extra = ('a2, 'b2) pv_ext2
       inherit ['a, 'a2, 'b, 'b2, 'extra] gmap_pv_ext
       method c_D : unit -> ('a, 'b) pv_ext2 -> 'a -> 'extra
     end
@@ -287,10 +288,13 @@ end = struct
             , unit, 'b, 'b2
             , unit, 'self, 'self
             ] class_pv_ext2
-    constraint 'self = [> ('a2,'b2) pv_ext2 ]
+    (* constraint 'self = [> ('a2,'b2) pv_ext2 ] *)
+    constraint 'self = ('a2,'b2) pv_ext2
     inherit ['a, 'a2, 'b, 'b2, 'self ] gmap_pv_ext fa fb
+        (* fself *)
         (function #pv_ext as s -> fself s)
     method c_D () _ a =
+      (* `D (fa a) *)
       match `D (fa a) with #pv_ext2 as x -> x
   end
 

@@ -115,20 +115,42 @@ open Printf
  * end *)
 
 (* ******************************************************************************* *)
-module PV = struct
+module PV : sig
+    type a = [ `A of b | `B of int ]
+    and b = [ `C of a | `D of string ]
+    class virtual ['inh, 'self, 'syn] a_t :
+      object
+        method virtual c_A : 'inh -> 'self -> b -> 'syn
+        method virtual c_B : 'inh -> 'self -> int -> 'syn
+      end
+    class virtual ['inh, 'self, 'syn] b_t :
+      object
+        method virtual c_C : 'inh -> 'self -> a -> 'syn
+        method virtual c_D : 'inh -> 'self -> string -> 'syn
+      end
+    val gcata_a :
+      ('a, [< a] as 'self, 'e) #a_t ->
+      'a -> 'self -> 'e
+    val gcata_b :
+      ('a, [< b] as 'self, 'e) #b_t ->
+      'a -> 'self -> 'e
+    type ('i, 's) a_trf = 'i -> a -> 's
+    type ('i, 's) b_trf = 'i -> b -> 's
+    val fixab :
+      (('a -> ([< a ] as 'b) -> 'e) *
+       ('f -> ([< b ] as 'g) -> 'j) ->
+       ('a -> 'b -> 'e) ->
+       ('a, 'b, 'e) #a_t
+         (* < c_A : 'a -> 'b -> 'c -> 'e; c_B : 'a -> 'b -> 'd -> 'e; .. > *)
+      ) ->
+      (('a -> 'b -> 'e) * ('f -> 'g -> 'j) ->
+       ('f -> 'g -> 'j) ->
+       ('f, 'g, 'j) #b_t) ->
+      ('a -> 'b -> 'e) * ('f -> 'g -> 'j)
+end = struct
 
 type a = [`A of b | `B of int]
 and  b = [`C of a | `D of string]
-
-let rec gcata_a tr inh subj =
-  match subj with
-  | `A b -> tr#c_A inh subj b
-  | `B x -> tr#c_B inh subj x
-
-let rec gcata_b tr inh subj =
-  match subj with
-  | `C a -> tr#c_C inh subj a
-  | `D s -> tr#c_D inh subj s
 
 class virtual [  'inh, 'self, 'syn ] a_t = object
   method virtual c_A   : 'inh -> 'self ->   b -> 'syn
@@ -139,6 +161,16 @@ class virtual [ 'inh, 'self, 'syn ] b_t = object
   method virtual c_D   : 'inh -> 'self -> string -> 'syn
 end
 
+let rec gcata_a (tr: ('a, [< a] as 'self, 'e) #a_t) inh subj =
+  match subj with
+  | `A b -> tr#c_A inh subj b
+  | `B x -> tr#c_B inh subj x
+
+let rec gcata_b (tr: ('a, [< b] as 'self, 'e) #b_t) inh subj =
+  match subj with
+  | `C a -> tr#c_C inh subj a
+  | `D s -> tr#c_D inh subj s
+
 type ( 'i, 's) a_trf  =  'i -> a -> 's
 type ( 'i, 's) b_trf  =  'i -> b -> 's
 
@@ -148,10 +180,11 @@ let fixab a0 b0 =
   and     trait_b i b = gcata_b (b0 (trait_a, trait_b) trait_b) i b
   in
   (trait_a, trait_b)
+end
 
 
 module Show = struct
-
+  open PV
   class ['self] show_a_stub (for_a,for_b) fself = object
     inherit [unit, 'self, string] a_t
     constraint 'self = [> a ] as 'self
@@ -180,11 +213,7 @@ module Show = struct
 end
 
 module Show2 = struct
-  (* class ['a, 'self] show_a_stub for_a for_b fself = object
-   *   inherit [unit, 'self, string] a_t
-   *   method c_A () be = sprintf "A (%s)" (for_b () be)
-   *   method c_B () d  = sprintf "B (%d)" d
-   * end *)
+  open PV
   class ['self] show_b_stub2 (for_a,for_b) fself = object
     inherit ['self] Show.show_b_stub (for_a,for_b) fself
     method c_C () _ a  = sprintf "new C (%s)" (for_a () a)
@@ -204,7 +233,6 @@ module Show2 = struct
 
 end
 
-end
 
 module PV2 = struct
   type c = [ PV.b | `E of int ]
@@ -229,13 +257,13 @@ module PV2 = struct
     class ['self] show_c_stub make_clas fself =
       let show_a2,show_b2  =
         PV.fixab
-          PV.Show.showa0
-          (fun b c -> ((make_clas c ()) :> _ PV.Show.show_b_stub) )
+          Show.showa0
+          (fun b c -> ((make_clas c ()) :> _ Show.show_b_stub) )
       in
       object
         inherit [unit, 'self, string] c_t
         (* constraint 'self = [> c ]  as 'self *)
-        inherit [ 'self] PV.Show.show_b_stub (show_a2,show_b2)
+        inherit [ 'self] Show.show_b_stub (show_a2,show_b2)
             (fun inh -> function (#PV.b as x) -> fself inh x)
         method! c_C () _ a = sprintf "new `C (%s)" (show_a2 () a)
         method! c_D () _ s = sprintf "new `D %s" s
@@ -249,11 +277,12 @@ module PV2 = struct
     let (_: (unit -> PV.b -> string) -> c -> string) = fun self -> gcata_c (showc0 self ()) ()
 
     let show_c () s =
-      let rec trait () s = gcata_c (showc0 trait ()) () s
+      let rec trait () s = gcata_c (showc0 trait ()) () (s :> c)
       in
       trait () s
 
 
     let _ = Printf.printf "%s\n" (show_c () (`C (`A (`D "4"))))
   end
+
 end

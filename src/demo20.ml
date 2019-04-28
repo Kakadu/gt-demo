@@ -115,50 +115,42 @@ open Printf
  * end *)
 
 (* ******************************************************************************* *)
-module PV: sig
-  type a = [ `A of b | `B of int ]
-  and b = [ `C of a | `D of string ]
-  val gcata_a :
-    < c_A : 'a -> ([< `A of 'c | `B of 'd ] as 'b) -> 'c -> 'e;
-      c_B : 'a -> 'b -> 'd -> 'e; .. > ->
-    'a -> 'b -> 'e
-  val gcata_b :
-    < c_C : 'a -> ([< `C of 'c | `D of 'd ] as 'b) -> 'c -> 'e;
-      c_D : 'a -> 'b -> 'd -> 'e; .. > ->
-    'a -> 'b -> 'e
-  class virtual ['inh, 'self, 'syn] a_t :
-    object
-      method virtual c_A : 'inh -> 'self -> b -> 'syn
-      method virtual c_B : 'inh -> 'self -> int -> 'syn
-    end
-  class virtual ['inh, 'self, 'syn] b_t :
-    object
-      method virtual c_C : 'inh -> 'self -> a -> 'syn
-      method virtual c_D : 'inh -> 'self -> string -> 'syn
-    end
-  type ('i, 's) a_trf = 'i -> a -> 's
-  type ('i, 's) b_trf = 'i -> b -> 's
-  val fixab :
-    (('a -> ([< a ] as 'b) -> 'e) *
-     ('f -> ([< b ] as 'c) -> 'j) ->
-     ('a -> 'b -> 'e) -> ('a, 'b, 'e) #a_t) ->
-    (('a -> 'b -> 'e) * ('f -> 'c -> 'j) ->
-     ('f -> 'c -> 'j) -> ('f, 'c, 'j) #b_t) ->
-    ('a -> 'b -> 'e) * ('f -> 'c -> 'j)
+module PV : sig
+    type a = [ `A of b | `B of int ]
+    and b = [ `C of a | `D of string ]
+    class virtual ['inh, 'self, 'syn] a_t :
+      object
+        method virtual c_A : 'inh -> 'self -> b -> 'syn
+        method virtual c_B : 'inh -> 'self -> int -> 'syn
+      end
+    class virtual ['inh, 'self, 'syn] b_t :
+      object
+        method virtual c_C : 'inh -> 'self -> a -> 'syn
+        method virtual c_D : 'inh -> 'self -> string -> 'syn
+      end
+    val gcata_a :
+      ('a, [< a] as 'self, 'e) #a_t ->
+      'a -> 'self -> 'e
+    val gcata_b :
+      ('a, [< b] as 'self, 'e) #b_t ->
+      'a -> 'self -> 'e
+    type ('i, 's) a_trf = 'i -> a -> 's
+    type ('i, 's) b_trf = 'i -> b -> 's
+    val fixab :
+      (('a -> ([< a ] as 'b) -> 'e) *
+       ('f -> ([< b ] as 'g) -> 'j) ->
+       ('a -> 'b -> 'e) ->
+       ('a, 'b, 'e) #a_t
+         (* < c_A : 'a -> 'b -> 'c -> 'e; c_B : 'a -> 'b -> 'd -> 'e; .. > *)
+      ) ->
+      (('a -> 'b -> 'e) * ('f -> 'g -> 'j) ->
+       ('f -> 'g -> 'j) ->
+       ('f, 'g, 'j) #b_t) ->
+      ('a -> 'b -> 'e) * ('f -> 'g -> 'j)
 end = struct
 
 type a = [`A of b | `B of int]
 and  b = [`C of a | `D of string]
-
-let rec gcata_a tr inh subj =
-  match subj with
-  | `A b -> tr#c_A inh subj b
-  | `B x -> tr#c_B inh subj x
-
-let rec gcata_b tr inh subj =
-  match subj with
-  | `C a -> tr#c_C inh subj a
-  | `D s -> tr#c_D inh subj s
 
 class virtual [  'inh, 'self, 'syn ] a_t = object
   method virtual c_A   : 'inh -> 'self ->   b -> 'syn
@@ -168,6 +160,16 @@ class virtual [ 'inh, 'self, 'syn ] b_t = object
   method virtual c_C   : 'inh -> 'self ->   a -> 'syn
   method virtual c_D   : 'inh -> 'self -> string -> 'syn
 end
+
+let rec gcata_a (tr: ('a, [< a] as 'self, 'e) #a_t) inh subj =
+  match subj with
+  | `A b -> tr#c_A inh subj b
+  | `B x -> tr#c_B inh subj x
+
+let rec gcata_b (tr: ('a, [< b] as 'self, 'e) #b_t) inh subj =
+  match subj with
+  | `C a -> tr#c_C inh subj a
+  | `D s -> tr#c_D inh subj s
 
 type ( 'i, 's) a_trf  =  'i -> a -> 's
 type ( 'i, 's) b_trf  =  'i -> b -> 's
@@ -210,7 +212,6 @@ end
 
 module Show2 = struct
   open PV
-
   class ['self] show_b_stub2 (for_a,for_b) fself = object
     inherit ['self] Show.show_b_stub (for_a,for_b) fself
     method c_C () _ a  = sprintf "new C (%s)" (for_a () a)
@@ -229,7 +230,6 @@ module Show2 = struct
   (* let _ = Printf.printf "%s\n" (show_a () (`A (`C (`A (`D "4"))))) *)
 
 end
-
 
 
 module PV2 = struct
@@ -264,11 +264,12 @@ module PV2 = struct
     let rec showc0 fself () = Printf.printf "new c0!\n"; new show_c_stub showc0 fself
 
     let show_c () s =
-      let rec trait () s = gcata_c (showc0 trait ()) () s
+      let rec trait () s = gcata_c (showc0 trait ()) () (s :> c)
       in
       trait () s
 
 
     let _ = Printf.printf "%s\n" (show_c () (`C (`A (`D "4"))))
   end
+
 end

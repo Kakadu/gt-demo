@@ -129,24 +129,22 @@ module PV : sig
         method virtual c_D : 'inh -> 'self -> string -> 'syn
       end
     val gcata_a :
-      ('a, [< a] as 'self, 'e) #a_t ->
-      'a -> 'self -> 'e
+      ('a, a, 'e) #a_t ->
+      'a -> a -> 'e
     val gcata_b :
-      ('a, [< b] as 'self, 'e) #b_t ->
-      'a -> 'self -> 'e
+      ('a, b, 'e) #b_t ->
+      'a -> b -> 'e
     type ('i, 's) a_trf = 'i -> a -> 's
     type ('i, 's) b_trf = 'i -> b -> 's
     val fixab :
-      (('a -> ([< a ] as 'b) -> 'e) *
-       ('f -> ([< b ] as 'g) -> 'j) ->
-       ('a -> 'b -> 'e) ->
-       ('a, 'b, 'e) #a_t
-         (* < c_A : 'a -> 'b -> 'c -> 'e; c_B : 'a -> 'b -> 'd -> 'e; .. > *)
+      (('a -> a  -> 'e) * ('f -> b -> 'j) ->
+       ('a -> a -> 'e) ->
+       ('a, a, 'e) #a_t
       ) ->
-      (('a -> 'b -> 'e) * ('f -> 'g -> 'j) ->
-       ('f -> 'g -> 'j) ->
-       ('f, 'g, 'j) #b_t) ->
-      ('a -> 'b -> 'e) * ('f -> 'g -> 'j)
+      (('a -> a -> 'e) * ('f -> b -> 'j) ->
+       ('f -> b -> 'j) ->
+       ('f, b, 'j) #b_t) ->
+      ('a -> a -> 'e) * ('f -> b -> 'j)
 end = struct
 
 type a = [`A of b | `B of int]
@@ -161,12 +159,12 @@ class virtual [ 'inh, 'self, 'syn ] b_t = object
   method virtual c_D   : 'inh -> 'self -> string -> 'syn
 end
 
-let rec gcata_a (tr: ('a, [< a] as 'self, 'e) #a_t) inh subj =
+let rec gcata_a (tr: ('a, a , 'e) #a_t) inh subj =
   match subj with
   | `A b -> tr#c_A inh subj b
   | `B x -> tr#c_B inh subj x
 
-let rec gcata_b (tr: ('a, [< b] as 'self, 'e) #b_t) inh subj =
+let rec gcata_b (tr: ('a, b, 'e) #b_t) inh subj =
   match subj with
   | `C a -> tr#c_C inh subj a
   | `D s -> tr#c_D inh subj s

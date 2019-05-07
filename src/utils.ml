@@ -33,3 +33,10 @@ let transform bundle make_obj subj =
   fself subj
 
 let transform0 = transform
+
+module GT = struct
+  let transform_gc gcata make_obj i subj =
+    let rec obj = lazy (make_obj fself)
+    and fself i x = gcata (Lazy.force obj) i x in
+    fself i subj
+end

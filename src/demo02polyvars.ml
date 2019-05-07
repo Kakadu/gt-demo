@@ -10,25 +10,25 @@ module PV : sig
     method virtual c_B : 'inh -> ('a,'b) pv -> 'b -> 'syn
   end
   class ['a, 'b] show_pv_t :
-    ('a -> string) ->
-    ('b -> string) ->
-    ( ('a,'b) pv -> string) ->
+    (unit -> 'a -> string) ->
+    (unit -> 'b -> string) ->
+    (unit ->  ('a,'b) pv -> string) ->
     object
       inherit [ unit, 'a, string, unit, 'b, string, unit, 'self, string] class_pv
       method c_A : unit -> ('a,'b) pv -> 'a -> string
       method c_B : unit -> ('a,'b) pv -> 'b -> string
     end
-  class ['a, 'a1, 'b, 'b1, 'self] gmap_pv_t :
-    ('a -> 'a1) ->
-    ('b -> 'b1) ->
-    (('a,'b) pv -> 'self) ->
+  class ['a, 'a1, 'b, 'b1, 'self, 'syn] gmap_pv_t :
+    (unit -> 'a -> 'a1) ->
+    (unit -> 'b -> 'b1) ->
+    (unit -> 'self -> 'syn) ->
     object
       inherit [ unit, 'a, 'a1
               , unit, 'b, 'b1
-              , unit, 'self,  'self] class_pv
-      constraint 'self = [> ('a1,'b1) pv ]
-      method c_A : unit -> ('a,'b) pv -> 'a -> 'self
-      method c_B : unit -> ('a,'b) pv -> 'b -> 'self
+              , unit, 'self, 'syn] class_pv
+      constraint 'syn = [> ('a1,'b1) pv ]
+      method c_A : unit -> ('a,'b) pv -> 'a -> 'syn
+      method c_B : unit -> ('a,'b) pv -> 'b -> 'syn
     end
 
   val gcata_pv :
@@ -36,11 +36,11 @@ module PV : sig
     'inh -> ('a,'b) pv -> 'syn
 
   val show_pv :
-    ('a -> string) -> ('b -> string) -> ('a,'b) pv -> string
+    (unit -> 'a -> string) -> (unit -> 'b -> string) -> ('a,'b) pv -> string
 
   (* We add more subtyping polymorphism to the result type to avoid exlicit casts
    * when using the result of gmap_pv as an argument of show_pv_ext *)
-  val gmap_pv : ('a -> 'b) -> ('c -> 'd) -> ('a,'c) pv -> [> ('b,'d) pv ]
+  val gmap_pv : (unit -> 'a -> 'b) -> (unit -> 'c -> 'd) -> ('a,'c) pv -> [> ('b,'d) pv ]
 end = struct
   type ('a, 'b) pv = [ `A of 'a | `B of 'b ]
 
@@ -57,21 +57,22 @@ end = struct
 
   class ['a, 'b] show_pv_t fa fb fself = object
     inherit [unit, 'a, string, unit, 'b, string, unit, 'self, string] class_pv
-    method c_A () _ a = sprintf "`A (%s)" (fa a)
-    method c_B () _ b = sprintf "`B (%s)" (fb b)
+    method c_A () _ a = sprintf "`A (%s)" (fa () a)
+    method c_B () _ b = sprintf "`B (%s)" (fb () b)
   end
 
   (* I added an self argument for the 'self variable in the open type
    * We need this in gmap class and not in a show implementation
   *)
-  class ['a, 'a1, 'b, 'b1, 'self ] gmap_pv_t (fa : 'a -> 'a1) (fb : 'b -> 'b1) fself =
+  class ['a, 'a1, 'b, 'b1, 'syn] gmap_pv_t
+      (fa : unit -> 'a -> 'a1) (fb : unit -> 'b -> 'b1) fself =
   object
     inherit [ unit, 'a, 'a1
             , unit, 'b, 'b1
-            , unit, 'self, 'self] class_pv
-    constraint 'self = [> ('a1,'b1) pv ]
-    method c_A () _ a = match `A (fa a) with #pv as x -> x
-    method c_B () _ b = `B (fb b)
+            , unit, 'self, 'syn] class_pv
+    constraint 'syn = [> ('a1,'b1) pv ] as 'syn
+    method c_A () _ a = match `A (fa () a) with #pv as x -> x
+    method c_B () _ b = `B (fb () b)
   end
 
   let pv = { gcata = gcata_pv; }
@@ -83,9 +84,9 @@ end
 let _ =
   let open PV in
   Printf.printf "Original PV: %s\nMapped PV: %s\n"
-      (show_pv id            id (`A "1"))
-      (show_pv string_of_int id @@
-       gmap_pv int_of_string id (`A "1"))
+      (show_pv (lift id)            (lift id) (`A "1"))
+      (show_pv (lift string_of_int) (lift id) @@
+       gmap_pv (lift int_of_string) (lift id) (`A "1"))
 
 
 (* ********** 2nd declaration **************************************************** *)

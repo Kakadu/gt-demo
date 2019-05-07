@@ -16,6 +16,7 @@ all:
 		src/demo80onj.native \
  		src/demo20.native \
  		src/hashcons.native \
+ 		src/demo21.native \
  #		src/demo18irr.native \
  #		src/demo19.native \
  #		src/demo17.native \

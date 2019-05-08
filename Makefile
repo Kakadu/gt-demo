@@ -4,7 +4,7 @@
 
 all:
 	ocamlbuild -use-ocamlfind -classic-display \
-		src/demo01adt.native src/demo02polyvars.native \
+		src/demo01adt.native \
 		src/demo03inhmatter.native src/demo05mutal.native \
 		src/demo08argcount.native src/demo04option.native \
 		src/demo06.native src/demo07lists.native \
@@ -17,6 +17,8 @@ all:
  		src/demo20.native \
  		src/hashcons.native \
  		src/demo21.native \
+		#src/demo02polyvars.native \
+ 		#src/demo22.native \
  #		src/demo18irr.native \
  #		src/demo19.native \
  #		src/demo17.native \

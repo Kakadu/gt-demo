@@ -11,12 +11,13 @@ all:
 		src/demo09nonrec.native \
 		src/demo10ulc.native  \
 		src/demo12mutal.native  \
-		src/demo13mutal.native  \
 		src/demo16modules.native \
 		src/demo80onj.native \
  		src/demo20.native \
  		src/hashcons.native \
- 		src/demo21.native \
+		src/demo808gadt.native \
+ 		#src/demo21.native \
+		#src/demo13mutal.native  \
 		#src/demo02polyvars.native \
  		#src/demo22.native \
  #		src/demo18irr.native \
@@ -35,4 +36,3 @@ celan: clean
 clean:
 	@$(RM) -r _build
 	@$(RM) *.out *.aux *.log *.bak *.pdf *~ *.native
-

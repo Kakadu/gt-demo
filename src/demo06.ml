@@ -6,7 +6,7 @@ open Demo04option
 
 class ['a, 'syn] foldl_toption self (fa: 'syn -> 'a -> 'syn) =
   object
-    inherit ['a, 'syn, 'syn, 'syn, 'syn] class_toption
+    inherit ['syn, 'a, 'syn, 'syn, 'syn] class_toption
     method c_None inh  = inh
     method c_Some inh a = fa inh a
   end
@@ -37,6 +37,5 @@ let my_map fa t =
 
 let _ =
   Printf.printf "Original: %s\nMapped: %s\n"
-    (show_toption id             (Some "06"))
-    (show_toption string_of_int  (my_map int_of_string (Some "06")))
-
+    (show_toption (lift id)            (Some "06"))
+    (show_toption (lift string_of_int) (my_map int_of_string (Some "06")))

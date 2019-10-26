@@ -23,7 +23,9 @@ let rec gcata_tree tr inh t =
   | Node (l,x,r) -> tr#c_Node inh l x r
   | Leaf x       -> tr#c_Leaf inh x
 
-let tree = { gcata = gcata_tree }
+let tree = { gcata = gcata_tree
+           ; fix = (fun c -> GT.transform_gc gcata_tree c)
+           }
 let prettify_tree fmt fa subj =
   transform1(tree) (new prettify_tree fa) fmt subj
 
@@ -45,10 +47,10 @@ open Demo07lists (* logic values are here *)
 class ['a] wtfo_logic typ_a fa fself = object
   inherit ['a, unit, string, unit, string] class_logic
   method c_Var   fmt n = sprintf "_.%d is `%s`" n typ_a
-  method c_Value fmt x = fa x
+  method c_Value fmt x = fa () x
 end
 
-let wtfo_logic typ_a fa s = Utils.transform(logic) (new wtfo_logic typ_a fa) s
+let wtfo_logic typ_a fa s = GT.transform(logic) (new wtfo_logic typ_a fa) () s
 
 class ['a] fmt_logic typ_a fa fself = object
   inherit ['a, 'inh, unit, 'inh, unit] class_logic
@@ -61,8 +63,8 @@ let fmt_logic typ_a fa fmt s =
   Utils.transform1(logic) (new fmt_logic typ_a fa) fmt s
 
 let () =
-  printf "show-with-type: %s\n"  (wtfo_logic "int" id (Var 1));
-  printf "show-with-type: %s\n"  (wtfo_logic "int" (sprintf "%f") (Value 3.14));
+  printf "show-with-type: %s\n"  (wtfo_logic "int" (lift id) (Var 1));
+  printf "show-with-type: %s\n"  (wtfo_logic "int" (lift@@sprintf "%f") (Value 3.14));
   Format.printf "fmt-with-type: %a\n" (fmt_logic "int" fmt_float) (Var 1);
   Format.printf "fmt-with-type: %a\n" (fmt_logic "int" fmt_float) (Value 3.14);
   ()
@@ -72,34 +74,34 @@ class ['a, 'b] wtfo_alist typ_a fa typ_b fb fself =
   object
     inherit ['a, unit, string, 'b, unit, string, unit, string] class_alist
     method c_Nil  ()     = "Nil"
-    method c_Cons () a b = sprintf "Cons (%s, %s)" (fa a) (fb b)
+    method c_Cons () a b = sprintf "Cons (%s, %s)" (fa () a) (fb () b)
   end
 
 let wtfo_alist typ_a fa typ_b fb t =
-  transform(alist) (new wtfo_alist typ_a fa typ_b fb) t
+  GT.transform(alist) (new wtfo_alist typ_a fa typ_b fb) () t
 
 (*  Now for llist *)
-class ['a] wtfo_llist (typ_a:string) (fa:  'a -> string)
-     (fself: 'a llist -> string)
+class ['a] wtfo_llist (typ_a:string) (fa: unit -> 'a -> string)
+     (fself: unit -> 'a llist -> string)
   = object
   inherit ['a, unit, string, unit, string] class_llist
   inherit [('a logic, 'b logic) alist as 'b] wtfo_logic
       (sprintf "(%s logic, 'b logic) alist as 'b" typ_a)
-      (
+      (fun () ->
          wtfo_alist
            (sprintf "%s logic" typ_a)
-           (wtfo_logic typ_a fa)
+           (fun () -> wtfo_logic typ_a fa)
            (sprintf "(%s logic, %s llist) alist logic" typ_a typ_a)
            fself
       )
       "3"
 end
 
-let wtfo_llist typ_a (fa: 'a -> string) (t: 'a llist) =
-  transform(llist) (new wtfo_llist typ_a fa) t
+let wtfo_llist typ_a (fa: unit -> 'a -> string) (t: 'a llist) =
+  GT.transform(llist) (new wtfo_llist typ_a fa) () t
 
 let () =
-  printf "%s\n%!" @@ wtfo_llist "int" (sprintf "%d") @@
+  printf "%s\n%!" @@ wtfo_llist "int" (lift @@ sprintf "%d") @@
     Value (Cons (Value 1, Value (Cons (Var 11, Value (Cons (Value 2, Var 12))))))
 
 

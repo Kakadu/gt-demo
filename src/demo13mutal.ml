@@ -67,7 +67,7 @@ class ['self] show_c_stub for_a for_b for_c for_d ~fself = object
 end
 class ['self] show_d_stub for_a for_b for_c for_d ~fself = object
   inherit [c] show_list
-      (fun x -> print_endline "HERR";
+      (fun () x ->
         for_a.a_trf show_string x
       )
       fself
@@ -98,7 +98,7 @@ type typ_for_c =
   }
 type typ_for_d =
   { d_func :  'self .
-                a_trf -> b_trf -> c_trf -> d_trf -> fself:(d -> string) ->
+                a_trf -> b_trf -> c_trf -> d_trf -> fself:(unit -> d -> string) ->
       'self show_d_stub
   }
 

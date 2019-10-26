@@ -21,22 +21,26 @@ let fmt_float fmt = Format.fprintf fmt "%f"
 
 let unused _ _ = failwith "*** Using the unused ***"
 
-type ('a, 'b) ttt = {gcata : 'a}
+type ('a, 'b) ttt = {gcata : 'a; fix: 'b }
+
 let transform1 bundle make_obj inh subj =
   let rec obj = lazy (make_obj fself)
   and fself inh x = bundle.gcata (Lazy.force obj) inh x in
   fself inh subj
 
-let transform bundle make_obj subj =
+let transform_gc gcata make_obj subj =
   let rec obj = lazy (make_obj fself)
-  and fself x = bundle.gcata (Lazy.force obj) () x in
+  and fself x = gcata (Lazy.force obj) () x in
   fself subj
 
-let transform0 = transform
 
 module GT = struct
   let transform_gc gcata make_obj i subj =
     let rec obj = lazy (make_obj fself)
     and fself i x = gcata (Lazy.force obj) i x in
     fself i subj
+
+  let transform bundle  = transform_gc bundle.gcata
+  let fix c = c.fix
+  let lift x () = x
 end
